@@ -145,7 +145,9 @@ export class KeyboardMouse implements InputSource {
       this.state.releaseAll();
     });
     on('mousemove', (e) => {
-      if (!this.locked || (e.movementX === 0 && e.movementY === 0)) return;
+      if (e.movementX === 0 && e.movementY === 0) return;
+      // sem captura do cursor (ex.: iframe que bloqueia pointer lock): arrastar com o botão esquerdo gira a câmera
+      if (!this.locked && !(e.buttons & 1 && e.target === this.el)) return;
       const { sens, invertY } = this.getSens();
       const k = 0.0022 * sens;
       this.state.addLook(-e.movementX * k, -e.movementY * k * (invertY ? -1 : 1));

@@ -28,6 +28,8 @@ import { SettingsStore, isMobile } from './Settings';
 
 const STEP = 1 / 60;
 const ASSET = './assets/';
+// extensão dos modelos: .glb (padrão) ou .gltf.json (hospedagens que não servem binários glTF)
+const MODEL_EXT: string = import.meta.env.VITE_MODEL_EXT ?? '.glb';
 const DOWN = new Vector3(0, -1, 0);
 const PLAYER_LAYER = 1;
 
@@ -128,7 +130,7 @@ export class Game {
     this.loading.progress(0.35, 'Soldados e animações…');
     const loader = new GLTFLoader();
     const [anims, meta] = await Promise.all([
-      loader.loadAsync(`${ASSET}characters/anims.glb`),
+      loader.loadAsync(`${ASSET}characters/anims${MODEL_EXT}`),
       fetch(`${ASSET}characters/anims.json`).then((x) => x.json() as Promise<AnimMeta>),
     ]);
     const clips: AnimationClip[] = anims.animations;
@@ -136,7 +138,7 @@ export class Game {
     const scenes: Group[] = [];
     for (let i = 0; i < variants.length; i++) {
       this.loading.progress(0.4 + (i / variants.length) * 0.5, `Soldado ${variants[i].toUpperCase()}…`);
-      scenes.push((await loader.loadAsync(`${ASSET}characters/soldier_${variants[i]}.glb`)).scene);
+      scenes.push((await loader.loadAsync(`${ASSET}characters/soldier_${variants[i]}${MODEL_EXT}`)).scene);
     }
     this.model = new CharacterModel(scenes[0], clips, meta);
     // corpo do jogador na camada 1: a câmera em 1ª pessoa não o desenha, mas a sombra continua

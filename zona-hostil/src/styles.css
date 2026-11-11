@@ -8,6 +8,7 @@
   --zh-accent-2: #f2c66d;
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color: var(--zh-text);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--zh-bg); overflow: hidden; overscroll-behavior: none; }
