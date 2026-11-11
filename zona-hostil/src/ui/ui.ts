@@ -102,6 +102,7 @@ const TABS: Record<string, Field[]> = {
     { kind: 'range', label: 'Resolução de renderização', get: (s) => s.graphics.renderScale, set: (s, v) => { s.graphics.renderScale = v; s.graphics.preset = 'personalizado'; }, min: 0.4, max: 1, step: 0.05, fmt: pct },
     { kind: 'select', label: 'Sombras', get: (s) => s.graphics.shadows, set: (s, v) => { s.graphics.shadows = v as Settings['graphics']['shadows']; s.graphics.preset = 'personalizado'; }, options: [['desligado', 'Desligadas'], ['baixo', 'Baixas'], ['medio', 'Médias'], ['alto', 'Altas']] },
     { kind: 'range', label: 'Distância de visão', get: (s) => s.graphics.viewDistance, set: (s, v) => { s.graphics.viewDistance = v; s.graphics.preset = 'personalizado'; }, min: 150, max: 3000, step: 50, fmt: (v) => `${v} m` },
+    { kind: 'toggle', label: 'Resolução dinâmica (mantém o FPS)', get: (s) => s.graphics.dynamicRes, set: (s, v) => (s.graphics.dynamicRes = v) },
     { kind: 'select', label: 'Limite de FPS', get: (s) => String(s.graphics.fpsLimit), set: (s, v) => (s.graphics.fpsLimit = Number(v)), options: [['30', '30'], ['45', '45'], ['60', '60'], ['90', '90'], ['120', '120'], ['0', 'Sem limite']] },
     { kind: 'toggle', label: 'Antisserrilhado (MSAA)', get: (s) => s.graphics.antialias, set: (s, v) => { s.graphics.antialias = v; s.graphics.preset = 'personalizado'; }, note: 'aplica ao recarregar' },
   ],

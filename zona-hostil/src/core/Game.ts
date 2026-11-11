@@ -6,6 +6,7 @@ import {
   AnimationClip,
   Clock,
   Group,
+  PCFShadowMap,
   PCFSoftShadowMap,
   SRGBColorSpace,
   Scene,
@@ -13,6 +14,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { loadModel } from './loadModel';
 import { CharacterModel, type AnimMeta } from '../anim/CharacterModel';
 import { GamepadSource, InputState, KeyboardMouse } from '../input/Input';
 import { TouchControls } from '../input/TouchControls';
@@ -23,6 +25,7 @@ import { TrainingDummy } from '../player/TrainingDummy';
 import { CreditsPanel, Hud, LoadingScreen, PauseMenu, SettingsPanel, TitleScreen } from '../ui/ui';
 import { Environment } from '../world/Environment';
 import { buildTestRange, loadRangeTextures, type RangeLayout } from '../world/TestRange';
+import { mergeStatic } from '../world/Builder';
 import { createTerrainMaterial, createTerrainMesh, loadTerrainTextures } from '../world/TerrainMesh';
 import { SettingsStore, isMobile } from './Settings';
 
@@ -62,6 +65,9 @@ export class Game {
   private lastRender = 0;
   private fps = 60;
   private crouchHeldPrev = false;
+  /** fator da resolução dinâmica (0.5..1) e cronômetro de avaliação */
+  private dynScale = 1;
+  private perfTimer = 0;
   private hintTimer = 25;
   readonly isTouch: boolean;
   private groundAt = (x: number, z: number, y0: number): number | null => {
@@ -124,13 +130,14 @@ export class Game {
     this.world = new CollisionWorld(L.heightfield);
     this.world.setStatic(L.builder.colliders);
     const terrain = createTerrainMesh(L.heightfield, createTerrainMaterial(terrainTex));
-    this.scene.add(terrain, L.builder.group);
+    // render: geometria estática mesclada por material; colisão: malhas originais (BVH)
+    this.scene.add(terrain, mergeStatic(L.builder.group));
     this.env = new Environment(this.scene, r);
 
     this.loading.progress(0.35, 'Soldados e animações…');
     const loader = new GLTFLoader();
     const [anims, meta] = await Promise.all([
-      loader.loadAsync(`${ASSET}characters/anims${MODEL_EXT}`),
+      loadModel(loader, `${ASSET}characters/anims${MODEL_EXT}`),
       fetch(`${ASSET}characters/anims.json`).then((x) => x.json() as Promise<AnimMeta>),
     ]);
     const clips: AnimationClip[] = anims.animations;
@@ -138,7 +145,7 @@ export class Game {
     const scenes: Group[] = [];
     for (let i = 0; i < variants.length; i++) {
       this.loading.progress(0.4 + (i / variants.length) * 0.5, `Soldado ${variants[i].toUpperCase()}…`);
-      scenes.push((await loader.loadAsync(`${ASSET}characters/soldier_${variants[i]}${MODEL_EXT}`)).scene);
+      scenes.push((await loadModel(loader, `${ASSET}characters/soldier_${variants[i]}${MODEL_EXT}`)).scene);
     }
     this.model = new CharacterModel(scenes[0], clips, meta);
     // corpo do jogador na camada 1: a câmera em 1ª pessoa não o desenha, mas a sombra continua
@@ -226,16 +233,35 @@ export class Game {
 
   private resize(): void {
     const s = this.settings.get();
-    const dpr = Math.min(devicePixelRatio || 1, 2) * s.graphics.renderScale;
+    const dpr = Math.min(devicePixelRatio || 1, 2) * s.graphics.renderScale * (s.graphics.dynamicRes ? this.dynScale : 1);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(innerWidth, innerHeight);
     this.rig.resize(innerWidth / innerHeight);
+  }
+
+  /** Resolução dinâmica: reduz/aumenta a escala de renderização para manter o FPS-alvo. */
+  private adaptResolution(dt: number): void {
+    const g = this.settings.get().graphics;
+    if (!g.dynamicRes || this.screen !== 'playing') return;
+    this.perfTimer += dt;
+    if (this.perfTimer < 1.5) return;
+    this.perfTimer = 0;
+    const target = g.fpsLimit > 0 ? Math.min(g.fpsLimit, 60) : 60;
+    if (this.fps < target * 0.85 && this.dynScale > 0.5) {
+      this.dynScale = Math.max(0.5, this.dynScale - 0.1);
+      this.resize();
+    } else if (this.fps > target * 0.97 && this.dynScale < 1) {
+      this.dynScale = Math.min(1, this.dynScale + 0.05);
+      this.resize();
+    }
   }
 
   private applySettings(): void {
     const s = this.settings.get();
     this.resize();
     this.env?.apply(s.graphics);
+    // filtro de sombra suave só no perfil alto (PCF simples é bem mais barato em GPUs de celular)
+    this.renderer.shadowMap.type = s.graphics.shadows === 'alto' ? PCFSoftShadowMap : PCFShadowMap;
     this.rig.camera.far = s.graphics.viewDistance + 500;
     this.rig.camera.updateProjectionMatrix();
     this.rig.mode = s.gameplay.camera;
@@ -247,6 +273,7 @@ export class Game {
     const dt = Math.min(0.1, this.clock.getDelta() + 0);
     this.lastRender = nowMs;
     this.fps += (1 / Math.max(dt, 1e-3) - this.fps) * 0.05;
+    this.adaptResolution(dt);
     this.pad.update(dt);
     this.kbm.update();
 

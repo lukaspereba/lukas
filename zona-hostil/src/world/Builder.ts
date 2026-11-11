@@ -1,6 +1,7 @@
 // Utilitários para montar estruturas: caixas com UV em escala de mundo, escadas e paredes com vãos.
 
 import { BoxGeometry, BufferAttribute, BufferGeometry, Group, Material, Mesh, Vector3 } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /** UV planar por face proporcional ao tamanho real (textura não estica em peças grandes). */
 export function worldUV(geo: BufferGeometry, tile: number): BufferGeometry {
@@ -20,6 +21,41 @@ export function worldUV(geo: BufferGeometry, tile: number): BufferGeometry {
   }
   uv.needsUpdate = true;
   return geo;
+}
+
+/**
+ * Junta todas as malhas estáticas de um grupo em uma malha por material (menos chamadas de desenho:
+ * o maior gargalo do WebGL em celulares). As malhas originais continuam valendo para a colisão.
+ */
+export function mergeStatic(group: Group): Group {
+  const byMat = new Map<Material, BufferGeometry[]>();
+  group.updateMatrixWorld(true);
+  group.traverse((o) => {
+    const m = o as Mesh;
+    if (!m.isMesh) return;
+    let g = m.geometry.clone();
+    if (g.index) g = g.toNonIndexed();
+    g.clearGroups();
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    g.applyMatrix4(m.matrixWorld);
+    const mat = m.material as Material;
+    if (!byMat.has(mat)) byMat.set(mat, []);
+    byMat.get(mat)!.push(g);
+  });
+  const out = new Group();
+  out.name = 'EstáticoMesclado';
+  for (const [mat, geos] of byMat) {
+    const merged = mergeGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+    if (!merged) continue;
+    merged.computeBoundingSphere();
+    const mesh = new Mesh(merged, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    out.add(mesh);
+  }
+  return out;
 }
 
 export class LevelBuilder {

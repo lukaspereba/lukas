@@ -11,6 +11,7 @@ export interface GraphicsSettings {
   viewDistance: number; // metros
   antialias: boolean;
   fpsLimit: number; // 0 = sem limite
+  dynamicRes: boolean; // reduz a resolução automaticamente quando o FPS cai
 }
 
 export interface ControlSettings {
@@ -50,7 +51,7 @@ export interface Settings {
 export const SETTINGS_VERSION = 1;
 const KEY = 'zona-hostil.settings';
 
-export const PRESETS: Record<Exclude<QualityPreset, 'personalizado'>, Omit<GraphicsSettings, 'preset' | 'fpsLimit'>> = {
+export const PRESETS: Record<Exclude<QualityPreset, 'personalizado'>, Omit<GraphicsSettings, 'preset' | 'fpsLimit' | 'dynamicRes'>> = {
   baixo: { renderScale: 0.6, shadows: 'baixo', viewDistance: 350, antialias: false },
   medio: { renderScale: 0.8, shadows: 'medio', viewDistance: 700, antialias: false },
   alto: { renderScale: 1.0, shadows: 'alto', viewDistance: 1400, antialias: true },
@@ -65,7 +66,7 @@ export function defaultSettings(mobile = isMobile()): Settings {
   const preset: QualityPreset = mobile ? 'medio' : 'alto';
   return {
     version: SETTINGS_VERSION,
-    graphics: { preset, ...PRESETS[preset], fpsLimit: mobile ? 60 : 0 },
+    graphics: { preset, ...PRESETS[preset], fpsLimit: mobile ? 60 : 0, dynamicRes: true },
     controls: { sensitivity: 1, aimSensitivity: 0.7, touchSensitivity: 1, invertY: false, toggleCrouch: true, gyro: false },
     gameplay: { camera: 'fps', fov: 90, headBob: 0.6, showFps: true, showDebug: false },
     audio: { master: 0.8, music: 0.5, effects: 0.9, weapons: 0.9, ambient: 0.7, ui: 0.7 },
@@ -95,6 +96,7 @@ export function sanitize(raw: unknown, mobile = isMobile()): Settings {
       viewDistance: clamp(g.viewDistance, 150, 3000, d.graphics.viewDistance),
       antialias: bool(g.antialias, d.graphics.antialias),
       fpsLimit: clamp(g.fpsLimit, 0, 240, d.graphics.fpsLimit),
+      dynamicRes: bool(g.dynamicRes, d.graphics.dynamicRes),
     },
     controls: {
       sensitivity: clamp(c.sensitivity, 0.1, 5, d.controls.sensitivity),
