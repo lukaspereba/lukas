@@ -1,0 +1,65 @@
+{
+ "clips": {
+  "idle": {
+   "duration": 2.3333,
+   "speed": 0.012,
+   "loop": true,
+   "frames": 70,
+   "source": "CMU 82_08"
+  },
+  "walk": {
+   "duration": 1.1,
+   "speed": 1.534,
+   "loop": true,
+   "frames": 33,
+   "source": "CMU 07_01"
+  },
+  "run": {
+   "duration": 0.7667,
+   "speed": 3.729,
+   "loop": true,
+   "frames": 23,
+   "source": "CMU 09_01"
+  },
+  "sprint": {
+   "duration": 0.6333,
+   "speed": 5.078,
+   "loop": true,
+   "frames": 19,
+   "source": "CMU 102_05"
+  },
+  "walk_back": {
+   "duration": 1.4667,
+   "speed": 0.832,
+   "loop": true,
+   "frames": 44,
+   "source": "CMU 113_01"
+  },
+  "strafe_l": {
+   "duration": 1.5333,
+   "speed": 0.568,
+   "loop": true,
+   "frames": 46,
+   "source": "CMU 113_18"
+  },
+  "strafe_r": {
+   "duration": 1.5333,
+   "speed": 0.571,
+   "loop": true,
+   "frames": 46,
+   "source": "CMU 113_18"
+  },
+  "jump": {
+   "duration": 2.7,
+   "speed": 0.0,
+   "loop": false,
+   "frames": 81,
+   "source": "CMU 16_01",
+   "liftoff": 1.1,
+   "land": 1.433
+  }
+ },
+ "hipHeight": 1.0015,
+ "fps": 30,
+ "rig": "game_engine (MakeHuman CC0)"
+}
