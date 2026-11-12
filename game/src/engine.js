@@ -48,7 +48,7 @@ export function updateEngine(dt) {
   if (S.shadows > 0) { const texel = 110 / S.shadows; const tx = Math.round(cp.x / texel) * texel, tz = Math.round(cp.z / texel) * texel; sun.target.position.set(tx, cp.y - 2, tz); sun.position.set(tx + sunDir.x * 150, cp.y - 2 + sunDir.y * 150, tz + sunDir.z * 150); sun.target.updateMatrixWorld(); }
   // culling por distância (LOD simples: detalhes somem antes das estruturas)
   cullT -= dt; if (cullT <= 0) { cullT = 0.12; const alt = Math.max(0, cp.y - G.terr.height(cp.x, cp.z)); const high = alt > 45; const dS = S.dist + (high ? alt * 1.2 : 0), dD = high ? 0 : S.detail; let vis = 0; if (G.scene.fog) { G.scene.fog.far = (S.dist + (high ? alt * 1.4 : 0)) * 0.99; G.scene.fog.near = G.scene.fog.far * 0.42; }
-    for (const m of world.meshes) { const bs = m.geometry.boundingSphere; const d = _v.copy(bs.center).sub(cp).length() - bs.radius; const k = m.userData.kind; const v = k === 3 ? d < dS * 1.15 : k === 0 ? d < dS : k === 1 ? d < dD : d < dD * 1.4; m.visible = v; if (v) vis++; } G.stats.chunks = vis;
+    for (const m of world.meshes) { const bs = m.geometry.boundingSphere; const d = _v.copy(bs.center).sub(cp).length() - bs.radius; const k = m.userData.kind; const v = G.inGulag ? false : k === 3 ? d < dS * 1.15 : k === 0 ? d < dS : k === 1 ? d < dD : d < dD * 1.4; m.visible = v; if (v) vis++; } G.stats.chunks = vis;
     world.glassMesh.visible = !high; world.doorMesh.visible = !high; }
 }
 export function render() {
