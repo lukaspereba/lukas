@@ -3,6 +3,7 @@
 <style>
 /* Layout: jogo em tela cheia; HUD ancorado nos cantos; menus em folhas que deixam o personagem 3D visível. */
 :root{--bg:#0d1014;--panel:rgba(15,19,24,.9);--panel2:rgba(28,34,41,.92);--line:rgba(255,255,255,.13);--fg:#eef1f3;--dim:#9aa3ab;--acc:#f2c230;--acc2:#4aa8e0;--bad:#e85a4a;--good:#5fd47a;--disp:'Barlow Condensed','Arial Narrow',system-ui,sans-serif;--body:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color-scheme:dark;--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
 canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
@@ -34,8 +35,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #h-ret{left:50%;top:50%;width:0;height:0}#h-ret i{position:absolute;display:block}
 #h-ret.reddot i{width:6px;height:6px;margin:-3px;border-radius:50%;background:#ff3b2a;box-shadow:0 0 6px #ff3b2a}
 #h-ret.holo i{width:38px;height:38px;margin:-19px;border-radius:50%;border:2px solid #ff3b2a;box-shadow:0 0 5px #ff3b2a}#h-ret.holo i::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#ff3b2a}
-#h-scope{inset:0;background:radial-gradient(circle at 50% 50%,transparent 0,transparent min(34vw,34vh),rgba(0,0,0,.92) calc(min(34vw,34vh) + 2px),#000 100%)}
-#h-scope::before,#h-scope::after{content:"";position:absolute;background:#0a0a0a}#h-scope::before{left:50%;top:calc(50% - min(34vw,34vh));height:calc(min(34vw,34vh)*2);width:1.5px;margin-left:-.75px}#h-scope::after{top:50%;left:calc(50% - min(34vw,34vh));width:calc(min(34vw,34vh)*2);height:1.5px;margin-top:-.75px}
+#h-scope{inset:0;--r:min(46vw,36vh);background:radial-gradient(circle at 50% 50%,transparent 0,transparent var(--r),rgba(0,0,0,.92) calc(var(--r) + 2px),#000 100%)}
+#h-scope::before,#h-scope::after{content:"";position:absolute;background:#0a0a0a}#h-scope::before{left:50%;top:calc(50% - var(--r));height:calc(var(--r)*2);width:1.5px;margin-left:-.75px}#h-scope::after{top:50%;left:calc(50% - var(--r));width:calc(var(--r)*2);height:1.5px;margin-top:-.75px}
 #h-dmg,#h-gas,#h-flash{inset:0;opacity:0}#h-dmg{background:radial-gradient(ellipse at center,transparent 45%,rgba(190,20,10,.75) 100%)}#h-gas{background:radial-gradient(ellipse at center,rgba(255,150,40,.12) 20%,rgba(230,110,20,.5) 100%)}#h-flash{background:#fff}
 #h-dir{left:50%;top:50%;width:150px;height:150px;margin:-75px;opacity:0}#h-dir::before{content:"";position:absolute;left:50%;top:0;margin-left:-22px;border:22px solid transparent;border-bottom:14px solid rgba(232,60,40,.9);border-top:0;transform:rotate(180deg)}
 #h-weap{left:50%;bottom:calc(10px + var(--sb));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:auto}
@@ -49,7 +50,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #h-info small{display:block;font:500 13px var(--body);color:var(--dim);letter-spacing:0}
 #diag{left:calc(10px + var(--sl));bottom:calc(46% + var(--sb));font:500 10.5px/1.35 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.6);padding:5px 7px;border-radius:4px;white-space:pre;color:#bfe8c8}
 @keyframes fade{0%{opacity:0;transform:translateX(10px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
-@media (max-aspect-ratio:1/1){#h-weap{bottom:calc(388px + var(--sb))}#h-prompt{bottom:calc(500px + var(--sb))}#diag{bottom:auto;top:calc(150px + var(--st))}#h-compass{top:calc(46px + var(--st));left:auto;right:calc(148px + var(--sr));transform:none}#h-feed{top:calc(84px + var(--st));max-width:50vw}}
+@media (max-aspect-ratio:1/1){#h-weap{bottom:auto;top:calc(222px + var(--st));flex-direction:column-reverse}#h-vital{width:190px}#h-prompt{bottom:calc(396px + var(--sb))}#h-banner{top:36%}#h-info{top:44%}#toasts{padding-top:calc(322px + var(--st))}#diag{bottom:auto;top:calc(150px + var(--st))}#h-compass{top:calc(46px + var(--st));left:auto;right:calc(148px + var(--sr));transform:none}#h-feed{top:calc(84px + var(--st));max-width:50vw}}
 @media (min-aspect-ratio:1/1) and (max-height:520px){#h-weap{bottom:calc(6px + var(--sb))}#h-vital{width:170px}}
 /* ── botões de toque ── */
 .hb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(18,22,27,.55);border:1.5px solid rgba(255,255,255,.42);display:grid;place-items:center;font:700 11px var(--disp);letter-spacing:.05em;color:#fff;touch-action:none;box-sizing:border-box}

@@ -24,7 +24,7 @@ export class Match {
     if (!planeMesh) { planeMesh = buildPlane(); planeMesh.visible = false; G.scene.add(planeMesh); zoneMesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 260, 64, 1, true), new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false, fog: false })); zoneMesh.visible = false; zoneMesh.renderOrder = 4; G.scene.add(zoneMesh); contractGroup = new THREE.Group(); G.scene.add(contractGroup); }
     G.extraInteract = (pl, bd) => this.extraInteract(pl, bd); }
   start(mode, teamSize) {
-    this.mode = mode; this.teamSize = mode === 'gulag' || mode === 'treino' ? 1 : teamSize; this.seed = (Date.now() & 0xffffff) | 1; const rng = this.rng = mulberry(this.seed); this.time = 0; this.feed = []; this.uavT = {}; this.contract = null; this.result = null; this.endT = 0; this.respawnT = 0; this.gulag = null; this.resurge = mode === 'res';
+    this.mode = mode; this.teamSize = mode === 'gulag' || mode === 'treino' ? 1 : teamSize; this.seed = (Date.now() & 0xffffff) | 1; const rng = this.rng = mulberry(this.seed); this.time = 0; this.feed = []; this.uavT = {}; this.contract = null; this.result = null; this.endT = 0; this.respawnT = 0; this.gulag = null; this.spec = null; this.deathPos = null; this.resurge = mode === 'res';
     G.world.resetDynamic(); clearFx(); clearEquipment(); spawnLoot(this.seed); stopAllLoops(); lobbyMusic(false); G.inGulag = false; G.world.gulagGroup.visible = false;
     const pl = G.player; pl.reset(); pl.model.root.visible = false; pl.noTerrain = false; pl.adsT = 0; I.ads = false; I.run = false; I.fire = false;
     const total = mode === 'gulag' ? 1 : mode === 'treino' ? Math.min(10, S.bots) : S.bots; G.actors = [pl]; G.bots = [];
@@ -66,7 +66,7 @@ export class Match {
     if (killer && killer.isPlayer && !a.isPlayer) { snd.ui('kill'); G.ui.killPop(a.name, o.head); if (this.contract && this.contract.type === 'bounty' && this.contract.target === a) this.finishContract(2500); }
     else if (this.contract && this.contract.type === 'bounty' && this.contract.target === a) this.finishContract(800, 'Alvo eliminado por outro');
     if (inGulag) { this.endGulag(!a.isPlayer); return; }
-    if (a.isPlayer) { snd.ui('lose'); loop('wind', false); const stage = this.zone.stage;
+    if (a.isPlayer) { snd.ui('lose'); loop('wind', false); const stage = this.zone.stage; this.deathPos = a.pos.clone(); this.spec = killer && killer !== a && killer.alive ? killer : null;
       if (this.mode === 'treino') { this.respawnT = 3; this.respawnKind = 'treino'; }
       else if (this.mode === 'br' && !a.gulagUsed && stage < 3 && this.aliveCount() > 2) { a.gulagUsed = true; this.respawnT = 2.2; this.respawnKind = 'gulag'; G.ui.toast('Você vai para o GULAG', '#f2c230'); }
       else if (this.resurge && stage < 4 && (this.teamSize === 1 || this.teamHasOthers(a))) { this.respawnT = 10; this.respawnKind = 'res'; this.respawns[a.id] = 1; }
@@ -90,7 +90,7 @@ export class Match {
     if (g.t <= 0) { if (pl.hp >= b.hp) this.kill(b, pl, {}); else this.kill(pl, b, {}); } }
   endGulag(won) { const g = this.gulag; if (!g) return; this.gulag = null; const pl = G.player; g.bot.mode = 'gone'; setTimeout(() => { g.bot.model.root.visible = false; const i = G.actors.indexOf(g.bot); if (i >= 0 && !G.bots.includes(g.bot)) G.actors.splice(i, 1); }, 50);
     if (g.standalone) { G.inGulag = false; G.world.gulagGroup.visible = false; pl.noTerrain = false; this.result = { win: won, place: won ? 1 : 2, kills: pl.kills, dmg: Math.round(pl.dmgDone), time: this.time, coins: won ? 80 : 20, gulag: true }; store.set('coins', store.get('coins', 500) + this.result.coins); this.endT = 1.5; snd.ui(won ? 'win' : 'lose'); return; }
-    if (won) { G.ui.banner('VOCÊ VENCEU O GULAG', 'Voltando ao combate'); snd.ui('win'); this.respawnT = 1.6; this.respawnKind = 'redeploy'; } else { G.inGulag = false; G.world.gulagGroup.visible = false; pl.noTerrain = false; this.finish(false); } }
+    if (won) { G.ui.banner('VOCÊ VENCEU O GULAG', 'Voltando ao combate'); snd.ui('win'); this.respawnT = 1.6; this.respawnKind = 'redeploy'; } else { G.inGulag = false; G.world.gulagGroup.visible = false; pl.noTerrain = false; if (this.deathPos) { pl.pos.copy(this.deathPos); pl.camY = pl.pos.y; } this.spec = null; this.finish(false); } }
   redeploy(a, keep) { const z = this.zone; let x = z.x, zz = z.z; const mate = G.actors.find((m) => m !== a && m.team === a.team && m.alive); if (mate) { x = mate.pos.x; zz = mate.pos.z; } else { const an = this.rng() * 6.283, r = Math.min(z.r * 0.5, 120) * this.rng(); x = clamp(z.x + Math.cos(an) * r, -280, 280); zz = clamp(z.z + Math.sin(an) * r, -280, 280); }
     a.alive = true; a.downed = false; a.hp = 100; a.prone = a.crouch = false; a.deadT = 0; a.spawnProt = 3; a.reloadT = 0; if (!keep) { a.weapons = [newWeapon('lambari'), null]; a.cur = 0; a.ammo['9mm'] = 60; a.armor = 50; a._wkey = null; }
     if (a.isPlayer) { G.inGulag = false; G.world.gulagGroup.visible = false; a.noTerrain = false; a.teleport(x, G.terr.height(x, zz) + 170, zz); a.mode = 'fall'; a.pitch = -0.6; G.ui.toast('Reimplantado — abra o paraquedas', '#5fd47a'); } else { a.pos.set(x, G.terr.height(x, zz) + 150, zz); a.mode = 'fall'; a.dropX = x + (this.rng() - 0.5) * 30; a.dropZ = zz + (this.rng() - 0.5) * 30; a.cell = nearestCell(a.dropX, a.dropZ, 10); if (a.cell >= 0) { a.dropX = nav.wx[a.cell]; a.dropZ = nav.wz[a.cell]; } } }
@@ -127,6 +127,7 @@ export class Match {
       zoneMesh.position.set(z.x, 60, z.z); zoneMesh.scale.set(Math.max(0.5, z.r), 1, Math.max(0.5, z.r));
       this.gasT = (this.gasT || 0) - dt; if (this.gasT <= 0) { this.gasT = 1; const dps = Math.max(2, z.dps); for (const a of G.actors) { if (!a.alive || a.mode === 'plane' || a.mode === 'gone' || (a.isPlayer && G.inGulag) || (this.gulag && a === this.gulag.bot)) continue; if (Math.hypot(a.pos.x - z.x, a.pos.z - z.z) > z.r) { if (a.maskHp > 0) { a.maskHp -= 1; if (a.maskHp <= 0) { a.inv.gasmask = 0; if (a.isPlayer) G.ui.toast('Máscara de gás quebrou', '#e85a4a'); } } else a.damage(dps, null, { zone: true }); } } } }
     if (this.gulag) this.updateGulag(dt);
+    if (!pl.alive && this.result && (!this.spec || !this.spec.alive)) { this.spec = G.actors.find((a) => a.alive && a.team === 0) || G.actors.find((a) => a.alive && a.mode === 'ground') || null; }
     this.updateContract(dt);
     // jogador derrubado
     if (pl.alive && pl.downed) { pl.downT -= dt; if (pl.selfRev) { if (pl.downT <= 0) this.revive(pl); } else if (pl.downT <= 0) this.kill(pl, pl.lastHitBy, {}); }

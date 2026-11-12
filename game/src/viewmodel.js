@@ -10,18 +10,18 @@ export class ViewModel {
   rebuild(pl) { const h = this.holder; while (h.children.length) { const c = h.children.pop(); c.traverse((o) => o.geometry && o.geometry.dispose()); } const L = pl.model.look; const long = L.shirtKind === 'sweater' || L.shirtKind === 'vest'; const w = pl.w;
     this.gun = w ? buildWeapon(w.def, w.optic) : pl.melee === 'faca' ? buildKnife() : new THREE.Group(); if (!w && pl.melee !== 'faca') this.gun.userData = { muzzle: -0.2, sightY: 0.05, handZ: 0, backZ: 0.05, fist: true };
     h.add(this.gun); this.armR = buildArm(L.gloves || L.skin, long ? L.shirt : null); this.armL = buildArm(L.gloves || L.skin, long ? L.shirt : null); h.add(this.armR); h.add(this.armL); const u = this.gun.userData;
-    this.armR.position.set(0.012, -0.055, 0.02); this.armR.rotation.set(-0.5, -0.22, 0);
-    if (u.fist) { this.armR.position.set(0.1, -0.02, -0.05); this.armR.rotation.set(-0.9, -0.2, 0); this.armL.position.set(-0.22, -0.02, -0.08); this.armL.rotation.set(-0.9, 0.2, 0); }
-    else if (!w) { this.armL.position.set(-0.2, -0.1, 0.1); this.armL.rotation.set(-0.7, 0.4, 0); }
-    else if (u.pistol) { this.armL.position.set(-0.03, -0.07, 0.03); this.armL.rotation.set(-0.5, 0.45, 0); }
-    else { this.armL.position.set(-0.01, (w.def.shape.h || 0.07) * 0.3 - 0.035, u.handZ); this.armL.rotation.set(-0.42, 0.75, 0); }
+    this.armR.position.set(0.012, -0.055, 0.02); this.armR.rotation.set(0.42, 0.3, 0);
+    if (u.fist) { this.armR.position.set(0.1, -0.02, -0.05); this.armR.rotation.set(0.8, 0.15, 0); this.armL.position.set(-0.22, -0.02, -0.08); this.armL.rotation.set(0.8, -0.15, 0); }
+    else if (!w) { this.armL.position.set(-0.2, -0.1, 0.1); this.armL.rotation.set(0.7, -0.4, 0); }
+    else if (u.pistol) { this.armL.position.set(-0.03, -0.07, 0.03); this.armL.rotation.set(0.5, -0.45, 0); }
+    else { this.armL.position.set(-0.01, (w.def.shape.h || 0.07) * 0.3 - 0.035, u.handZ); this.armL.rotation.set(0.42, -0.8, 0); }
     this.mag = u.mag; }
   fire(def) { this.kick = Math.min(1.4, this.kick + (def.cls === 'sniper' || def.cls === 'shotgun' ? 1.2 : def.cls === 'pistol' ? 0.8 : 0.45)); this.kickR = Math.min(1.5, this.kickR + 0.5); this.flashT = 0.04; }
   update(dt, pl, look) {
     const w = pl.w, key = (w ? w.def.id + w.optic : 'm' + pl.melee) + pl.model.look.shirt + pl.model.look.skin; if (key !== this.key) { this.key = key; this.rebuild(pl); }
     const u = this.gun.userData, ads = pl.adsT, pistol = u.pistol, port = G.aspect < 1;
-    const hx = (pistol ? 0.12 : 0.15) * (port ? 0.62 : 1), hy = pistol ? -0.13 : -0.15, hz = pistol ? -0.36 : -0.34;
-    const az = pistol ? -0.34 : Math.min(-0.16, -(u.scopeBack || 0.05) - 0.1);
+    const hx = port ? (pistol ? 0.06 : 0.075) : (pistol ? 0.14 : 0.17), hy = port ? -0.2 : (pistol ? -0.14 : -0.17), hz = (port ? -0.62 : -0.46) + (pistol ? 0.06 : 0);
+    const az = Math.min(port ? -0.5 : -0.32, -(u.scopeBack || 0.05) - 0.14) + (pistol ? -0.04 : 0);
     let x = lerp(hx, 0, ads), y = lerp(hy, -u.sightY, ads), z = lerp(hz, az, ads), rx = 0, ry = 0, rz = 0;
     this.kick = Math.max(0, this.kick - dt * 9 * (0.4 + this.kick)); this.kickR = Math.max(0, this.kickR - dt * 10 * (0.3 + this.kickR)); z += this.kick * 0.05 * (1 - ads * 0.4); rx += this.kickR * 0.05 * (1 - ads * 0.6); y += this.kick * 0.006;
     // balanço ao andar e inércia ao girar a câmera

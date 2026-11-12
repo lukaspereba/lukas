@@ -1,0 +1,9 @@
+// Battle Royale completo em avanço rápido: avião, salto, pouso, zona, bots lutando, fim de partida.
+module.exports = async ({ p, shot, ev, sleep }) => {
+  const mode = process.env.MODE || 'br', team = +(process.env.TEAM || 1), god = !!process.env.GOD;
+  const r = await ev(({ mode, team, god }) => { const G = __G, out = { log: [] }; G.simPause = true; const sim = window.__sim; G.dev.god = god; G.startMatch(mode, team); const pl = G.player, M = G.match;
+    out.teams = M.teams; out.actors = G.actors.length; sim(5); out.phase1 = M.phase; sim(6); G.__hits.add('jump'); sim(0.2); out.afterJump = pl.mode; let t = 0; while ((pl.mode === 'fall' || pl.mode === 'chute') && t < 60) { sim(1); t++; } out.landT = t; out.landMode = pl.mode; out.landPos = [pl.pos.x, pl.pos.y - G.terr.height(pl.pos.x, pl.pos.z), pl.pos.z].map((v) => +v.toFixed(1)); out.hpLand = pl.hp;
+    let cost = 0, n = 0; for (let i = 0; i < 46 && G.mode === 'play' && !M.result; i++) { const ms = sim(10); cost += ms; n++; const alive = G.bots.filter((b) => b.alive); const armed = alive.filter((b) => b.w).length; const st = {}; alive.forEach((b) => { st[b.state] = (st[b.state] || 0) + 1; }); out.log.push(`t=${Math.round(M.time)} vivos=${M.aliveCount()} armados=${armed} zona=${M.zone.stage}/${Math.round(M.zone.r)} pl=${pl.alive ? Math.round(pl.hp) + '+' + Math.round(pl.armor) : 'morto'}${G.inGulag ? ' GULAG' : ''} ${JSON.stringify(st)} ms/tick=${ms.toFixed(2)}`); }
+    out.result = M.result; out.msPerTick = +(cost / Math.max(1, n)).toFixed(2); out.feed = M.feed.map((f) => f.html.replace(/<[^>]+>/g, '')); out.kills = G.actors.map((a) => a.kills).reduce((a, b) => a + b, 0); out.sheetOpen = !document.getElementById('panel').hidden; return out; }, { mode, team, god });
+  console.log(JSON.stringify(r, null, 1)); await ev(() => { __G.simPause = false; }); await sleep(1500); await shot('m_end_' + mode);
+};

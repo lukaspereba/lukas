@@ -28,7 +28,7 @@ export function buildWeapon(def, optic) {
     if (s.brake) { Cy(0, h * 0.62, muzzle - 0.03, 0.02, 0.07, STEEL); B(0, h * 0.62, muzzle - 0.03, 0.05, 0.012, 0.03, METAL); muzzle -= 0.065; } else { Cy(0, h * 0.62, muzzle - 0.012, 0.015, 0.035, METAL); muzzle -= 0.03; }
     if (s.gasTube) { Cy(0, h * 0.95, front - s.hand * 0.6, 0.011, s.hand * 1.2, METAL); B(0, h * 0.8, front - s.hand * 1.2, 0.02, 0.05, 0.02, METAL); }
     if (s.mag === 'tube') Cy(0, h * 0.3, hgEnd - s.barrel * 0.42, 0.014, s.barrel * 0.82, METAL);
-    if (s.sightF) { B(0, h + 0.03, hgEnd - 0.02, 0.008, 0.06, 0.012, METAL); B(0, h + 0.025, rz0 - 0.03, 0.02, 0.03, 0.01, METAL); }
+    if (s.sightF) { B(0, h + 0.023, hgEnd - 0.02, 0.006, 0.046, 0.012, METAL); B(0, h + 0.025, rz0 - 0.03, 0.02, 0.03, 0.01, METAL); }
     if (s.carry) { B(0, h + 0.045, rz0 - len * 0.5, 0.014, 0.012, len * 0.55, body); B(0, h + 0.02, rz0 - len * 0.25, 0.014, 0.04, 0.014, body); B(0, h + 0.02, rz0 - len * 0.75, 0.014, 0.04, 0.014, body); sightY = h + 0.062; }
     if (s.rail) B(0, h + 0.006, rz0 - len * 0.5, 0.024, 0.012, len * 0.86, METAL);
     if (s.bipod) { for (const x of [-0.03, 0.03]) B(x, h * 0.3 - 0.04, hgEnd + 0.06, 0.008, 0.01, 0.2, METAL, 0.12, 0, 0); }
@@ -65,5 +65,5 @@ export function buildWeapon(def, optic) {
 }
 export function buildKnife() { const g = new THREE.Group(); g.add(new THREE.Mesh(part([['box', [0, 0, 0.0, 0.026, 0.03, 0.11], 0x2a2c30], ['box', [0, 0, -0.06, 0.05, 0.036, 0.012], 0x55585c], ['box', [0, 0.004, -0.15, 0.004, 0.03, 0.17], 0xc9cdd0], ['box', [0, -0.006, -0.25, 0.004, 0.018, 0.04, 0.5, 0, 0], 0xc9cdd0]]), VMAT)); g.userData = { muzzle: -0.25, sightY: 0.05, handZ: 0, backZ: 0.06 }; return g; }
 // Mãos/antebraços para a visão em primeira pessoa.
-export function buildArm(skin, sleeve) { const sp = [['cap', [0, 0, 0.17, 0.036, 0.036, 0.085, 0, 0, 0], sleeve != null ? sleeve : skin], ['sph', [0, 0, -0.01, 0.036, 0.03, 0.05], skin]]; sp[0][1][6] = Math.PI / 2; return new THREE.Mesh(part(sp), VMAT); }
+export function buildArm(skin, sleeve) { const sp = [['cap', [0, 0, 0.19, 0.038, 0.085, 0.038, Math.PI / 2, 0, 0], sleeve != null ? sleeve : skin], ['sph', [0, 0, -0.01, 0.036, 0.03, 0.05], skin]]; return new THREE.Mesh(part(sp), VMAT); }
 export function buildGrenade(kind) { const c = { frag: 0x3a4a2e, smoke: 0x8a9096, stun: 0xd9dde0, decoy: 0x2a2c30 }[kind] || 0x3a4a2e; return new THREE.Mesh(part(kind === 'frag' ? [['sph', [0, 0, 0, 0.045, 0.055, 0.045], c], ['cyl', [0, 0.06, 0, 0.015, 0.03, 0.015], 0x8a8a8a]] : [['cyl', [0, 0, 0, 0.035, 0.12, 0.035], c], ['cyl', [0, 0.07, 0, 0.018, 0.03, 0.018], 0x55585c], ['cyl', [0, 0, 0, 0.036, 0.02, 0.036], kind === 'stun' ? 0x2a6fd0 : kind === 'smoke' ? 0x3a8a4a : 0xd9a520]]), VMAT); }

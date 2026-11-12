@@ -90,7 +90,7 @@ export class Bot extends Actor {
     // erro de mira: cresce com distância, cai com habilidade e tempo mirando
     const base = (1.6 + d * 0.035) * (1.25 - this.diff.acc * 0.6) / this.skill + this.aimErr * 5 + (this.speed > 1 ? 0.8 : 0) + (t.crouch ? 0.4 : 0) + (t.prone ? 0.8 : 0);
     const e = this.eye(V); V2.set(t.pos.x - e.x, ty - e.y, t.pos.z - e.z).normalize(); const mz = V3.set(e.x + V2.x * 0.8, e.y - 0.12 + V2.y * 0.8, e.z + V2.z * 0.8);
-    w.ammo--; shoot(this, w, e, V2, base + def.spread[1], mz, this.diff.dmg); this.cool = 60 / def.rpm * (def.mode === 'semi' ? 1.6 : 1); this.burstN--; if (this.burstN <= 0) this.pauseT = (def.mode === 'bolt' || def.mode === 'pump' ? 0.2 : 0.35) + Math.random() * 0.6 * (1.4 - this.diff.acc * 0.5);
+    w.ammo--; shoot(this, w, e, V2, base + def.spread[1], mz, this.diff.dmg * (t.isPlayer ? 1 : 0.55)); this.cool = 60 / def.rpm * (def.mode === 'semi' ? 1.6 : 1); this.burstN--; if (this.burstN <= 0) this.pauseT = (def.mode === 'bolt' || def.mode === 'pump' ? 0.2 : 0.35) + Math.random() * 0.6 * (1.4 - this.diff.acc * 0.5);
     if (this.inv.frag > 0 && d > 9 && d < 26 && Math.random() < 0.004) { V2.y += 0.25; V2.normalize(); throwNade(this, 'frag', V2.clone()); }
   }
 }
