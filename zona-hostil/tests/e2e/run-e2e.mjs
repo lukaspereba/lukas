@@ -105,7 +105,37 @@ async function main() {
     const { page, ctx } = await newGame(browser);
     await page.screenshot({ path: OUT + '01-tela-inicial.png' });
     check('tela inicial carregada', (await state(page)).screen === 'title');
+    // modo desenvolvedor: 5 toques no logo -> código; errado é recusado, "alex" libera
+    const tapLogo = async () => {
+      for (let i = 0; i < 5; i++) await page.click('.zh-title .zh-logo');
+    };
+    await tapLogo();
+    await page.fill('#zh-dev-code', 'Alex');
+    await page.click('.zh-code button[type=submit]');
+    await page.waitForTimeout(300);
+    const wrongMsg = await page.textContent('.zh-code-msg');
+    const devBtnHidden = await page.evaluate(() => getComputedStyle(document.querySelector('button[data-dev]')).display === 'none');
+    check('código errado ("Alex") não libera o modo dev', /incorreto/.test(wrongMsg ?? '') && devBtnHidden, wrongMsg ?? '');
+    const pwType = await page.getAttribute('#zh-dev-code', 'type');
+    check('código não aparece na tela (campo de senha)', pwType === 'password', pwType ?? '');
+    await page.fill('#zh-dev-code', 'alex');
+    await page.click('.zh-code button[type=submit]');
+    await page.waitForTimeout(400);
+    check('código "alex" abre o painel do desenvolvedor', await page.isVisible('.zh-dev .zh-fields'), '');
+    await page.check('#zh-dev-fly');
+    await page.click('.zh-dev [data-a=close]');
     await page.evaluate(() => window.__zh.play());
+    await simWait(page, 0.5);
+    const fy0 = (await state(page)).pos[1];
+    await hold(page, 'Space', 1.0);
+    const fy1 = (await state(page)).pos[1];
+    check('modo dev: voo livre sobe com Espaço', fy1 - fy0 > 3, `subiu ${(fy1 - fy0).toFixed(1)} m`);
+    await page.evaluate(() => {
+      const g = window.__zh.game;
+      g.dev.fly = false;
+      g.applyDev();
+      g.player.respawn(g.layout.spawn.clone(), 0);
+    });
     await simWait(page, 1.0);
     let s = await state(page);
     check('jogador no chão após spawn', s.grounded && s.screen === 'playing', JSON.stringify(s.pos));

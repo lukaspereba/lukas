@@ -16,6 +16,7 @@ export interface MoveInput {
   crouch: boolean; // borda (alternar)
   crouchHeld: boolean;
   prone: boolean; // borda
+  jumpHeld?: boolean;
 }
 
 export const MOVE = {
@@ -76,6 +77,9 @@ export class PlayerController {
   private proneTransition = 0;
   /** distância percorrida no chão (para o balanço de câmera) */
   stride = 0;
+  /** modo desenvolvedor: multiplicador de velocidade e voo livre */
+  speedMul = 1;
+  fly = false;
 
   constructor(readonly world: CollisionWorld, spawn: Vector3, yaw = 0) {
     this.motor = new CharacterMotor(world, { ...DEFAULT_MOTOR, height: MOVE.standHeight });
@@ -187,6 +191,10 @@ export class PlayerController {
     this.slideCooldown = Math.max(0, this.slideCooldown - dt);
     this.proneTransition = Math.max(0, this.proneTransition - dt);
 
+    if (this.fly) {
+      this.updateFly(dt, inp);
+      return;
+    }
     if (this.state === 'mantle') {
       this.updateMantle(dt);
       this.blendStances(dt);
@@ -238,6 +246,7 @@ export class PlayerController {
     else if (this.stance === 'crouch') maxSpeed = MOVE.crouch;
     else if (this.sprinting) maxSpeed = MOVE.sprint;
     else maxSpeed = moving < 0.55 ? MOVE.walk : MOVE.run;
+    maxSpeed *= this.speedMul;
     const fwdMul = inp.moveY < 0 ? MOVE.backMul : 1;
     _wish.set(0, 0, 0)
       .addScaledVector(_fwd, inp.moveY * fwdMul)
@@ -279,6 +288,23 @@ export class PlayerController {
     // segurar pulo no ar contra uma borda escala
     if (!m.grounded && this.state === 'air' && inp.moveY > 0.5 && m.velocity.y < 1.5 && m.airTime > 0.15) this.tryMantle();
     if (m.grounded) this.stride += Math.hypot(m.position.x - this.prevPosition.x, m.position.z - this.prevPosition.z);
+    this.blendStances(dt);
+  }
+
+  /** Voo livre (dev): segue a direção da câmera, atravessa paredes. */
+  private updateFly(dt: number, inp: MoveInput): void {
+    const cp = Math.cos(this.pitch);
+    const f = _tmp.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+    this.right(_right);
+    const sp = 14 * this.speedMul * (inp.sprint ? 2.5 : 1);
+    const p = this.motor.position;
+    p.addScaledVector(f, inp.moveY * sp * dt).addScaledVector(_right, inp.moveX * sp * dt);
+    p.y += ((inp.jumpHeld ? 1 : 0) - (inp.crouchHeld ? 1 : 0)) * sp * 0.6 * dt;
+    const gy = this.world.groundHeight(p.x, p.z);
+    if (p.y < gy) p.y = gy;
+    this.motor.velocity.set(0, 0, 0);
+    this.motor.grounded = false;
+    this.state = 'air';
     this.blendStances(dt);
   }
 

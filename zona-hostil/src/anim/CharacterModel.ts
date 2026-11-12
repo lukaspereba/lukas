@@ -199,6 +199,18 @@ export class CharacterModel {
     }
   }
 
+  private shadowOn = true;
+
+  /** Liga/desliga a sombra projetada (personagens distantes não precisam: economiza um passe inteiro). */
+  setCastShadow(on: boolean): void {
+    if (on === this.shadowOn) return;
+    this.shadowOn = on;
+    for (const m of this.meshes) {
+      const mat = m.material as MeshStandardMaterial;
+      m.castShadow = on && !/Eyebrows|Eyelashes/i.test(mat.name);
+    }
+  }
+
   /** Coloca as malhas numa camada de renderização (a sombra continua sendo projetada). */
   setLayer(layer: number): void {
     for (const m of this.meshes) m.layers.set(layer);

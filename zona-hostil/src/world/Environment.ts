@@ -6,7 +6,9 @@ import {
   Fog,
   HemisphereLight,
   MathUtils,
+  CubeCamera,
   PMREMGenerator,
+  WebGLCubeRenderTarget,
   Scene,
   Vector3,
   WebGLRenderer,
@@ -41,7 +43,7 @@ export class Environment {
     u.rayleigh.value = 1.4;
     u.mieCoefficient.value = 0.004;
     u.mieDirectionalG.value = 0.82;
-    scene.add(this.sky);
+    // o shader de atmosfera é caro por pixel: renderiza uma vez num cubemap e usa como fundo
 
     const phi = MathUtils.degToRad(90 - elevationDeg);
     const theta = MathUtils.degToRad(azimuthDeg);
@@ -69,6 +71,13 @@ export class Environment {
     scene.environment = pmrem.fromScene(envScene, 0.02).texture;
     scene.environmentIntensity = 0.45;
     pmrem.dispose();
+    const bgScene = new Scene();
+    this.sky.material.uniforms.sunPosition.value.copy(this.sunDir);
+    bgScene.add(this.sky);
+    const cubeRT = new WebGLCubeRenderTarget(512, { generateMipmaps: false });
+    const cubeCam = new CubeCamera(1, 5000, cubeRT);
+    cubeCam.update(renderer, bgScene);
+    scene.background = cubeRT.texture;
   }
 
   apply(g: GraphicsSettings): void {

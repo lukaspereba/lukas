@@ -93,3 +93,14 @@ html, body { margin: 0; height: 100%; background: var(--zh-bg); overflow: hidden
   .zh-title { background: linear-gradient(180deg, rgba(8,10,12,.2) 0%, rgba(8,10,12,.8) 70%); align-items: flex-end; }
   .zh-title-inner { margin: 0 16px 28px; }
 }
+
+.zh-perf { position: absolute; right: 12px; top: 30px; margin: 0; font: 11px/1.45 ui-monospace, Menlo, monospace; color: #ffe9b0; background: rgba(0,0,0,.5); padding: 6px 9px; border-radius: 3px; text-align: right; }
+.zh-hud.touch .zh-perf { top: 70px; right: 120px; }
+.zh-code input { font: inherit; font-size: 18px; letter-spacing: .3em; padding: 10px 12px; background: #20262b; color: var(--zh-text); border: 1px solid var(--zh-line); border-radius: 2px; margin: 10px 0 4px; width: 100%; }
+.zh-code-msg { min-height: 18px; color: #ff9b8a; font-size: 13px; }
+.zh-code .zh-panel-foot { padding: 12px 0 0; border: 0; }
+.zh-dev-row { grid-template-columns: 1fr; }
+.zh-dev-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.zh-dev-btns button { font: inherit; font-size: 12px; letter-spacing: .06em; color: var(--zh-text); background: rgba(255,255,255,.08); border: 1px solid var(--zh-line); padding: 8px 10px; border-radius: 2px; cursor: pointer; }
+.zh-dev-btns button:hover { border-color: var(--zh-accent); }
+.zh-menu button.dev { border-left-color: #c94f4f; }

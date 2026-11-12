@@ -6,6 +6,7 @@ import {
   AnimationClip,
   Clock,
   Group,
+  MeshStandardMaterial,
   PCFShadowMap,
   PCFSoftShadowMap,
   SRGBColorSpace,
@@ -26,7 +27,9 @@ import { CreditsPanel, Hud, LoadingScreen, PauseMenu, SettingsPanel, TitleScreen
 import { Environment } from '../world/Environment';
 import { buildTestRange, loadRangeTextures, type RangeLayout } from '../world/TestRange';
 import { mergeStatic } from '../world/Builder';
-import { createTerrainMaterial, createTerrainMesh, loadTerrainTextures } from '../world/TerrainMesh';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { DevPanel, attachLogoTaps, type DevState } from '../ui/DevMode';
+import { createTerrainMaterial, createTerrainMesh, loadTerrainTextures, setTerrainQuality } from '../world/TerrainMesh';
 import { SettingsStore, isMobile } from './Settings';
 
 const STEP = 1 / 60;
@@ -63,10 +66,16 @@ export class Game {
   private acc = 0;
   private clock = new Clock();
   private lastRender = 0;
-  private fps = 60;
+  private fps = 0;
+  private frameTimes: number[] = [];
   private crouchHeldPrev = false;
   /** fator da resolução dinâmica (0.5..1) e cronômetro de avaliação */
   private dynScale = 1;
+  readonly dev: DevState = { unlocked: false, fly: false, speedMul: 1, showPerf: false, infiniteAmmo: false, godMode: false };
+  private devPanel!: DevPanel;
+  private assetsChar!: { clips: AnimationClip[]; meta: AnimMeta; scenes: Group[]; variants: string[] };
+  private skinSources: Group[] = [];
+  private terrainMat?: MeshStandardMaterial;
   /** direção do corpo do jogador (pode diferir da câmera em 3ª pessoa) */
   private bodyYaw = 0;
   private perfTimer = 0;
@@ -131,7 +140,8 @@ export class Game {
     const L = this.layout;
     this.world = new CollisionWorld(L.heightfield);
     this.world.setStatic(L.builder.colliders);
-    const terrain = createTerrainMesh(L.heightfield, createTerrainMaterial(terrainTex));
+    this.terrainMat = createTerrainMaterial(terrainTex);
+    const terrain = createTerrainMesh(L.heightfield, this.terrainMat);
     // render: geometria estática mesclada por material; colisão: malhas originais (BVH)
     this.scene.add(terrain, mergeStatic(L.builder.group));
     this.env = new Environment(this.scene, r);
@@ -145,10 +155,13 @@ export class Game {
     const clips: AnimationClip[] = anims.animations;
     const variants = ['alfa', 'bravo', 'charlie', 'delta'];
     const scenes: Group[] = [];
+    this.assetsChar = { clips, meta, scenes, variants };
     for (let i = 0; i < variants.length; i++) {
       this.loading.progress(0.4 + (i / variants.length) * 0.5, `Soldado ${variants[i].toUpperCase()}…`);
       scenes.push((await loadModel(loader, `${ASSET}characters/soldier_${variants[i]}${MODEL_EXT}`)).scene);
     }
+    // cópias em pose de bind (antes de qualquer animação) para manequins extras e troca de personagem
+    for (let i = 0; i < scenes.length; i++) this.skinSources.push(SkeletonUtils.clone(scenes[i]) as Group);
     this.model = new CharacterModel(scenes[0], clips, meta);
     // corpo do jogador na camada 1: a câmera em 1ª pessoa não o desenha, mas a sombra continua
     this.model.setLayer(PLAYER_LAYER);
@@ -192,6 +205,24 @@ export class Game {
       settings: () => this.settingsPanel.open(() => undefined),
       credits: () => this.credits.open(),
     });
+    this.devPanel = new DevPanel(c, this.dev, {
+      teleport: (n) => {
+        this.teleport(n);
+        if (this.screen === 'paused') this.resume();
+      },
+      places: () => Object.keys(this.layout.points),
+      skins: () => this.assetsChar.variants.map((v) => v.toUpperCase()),
+      setSkin: (i) => this.setPlayerSkin(i),
+      addDummy: () => this.addDummy(),
+      removeDummy: () => this.removeDummy(),
+      dummyCount: () => this.dummies.length,
+      onChange: () => this.applyDev(),
+    });
+    attachLogoTaps(this.title.el.querySelector('.zh-logo') as HTMLElement, c, () => {
+      this.dev.unlocked = true;
+      this.applyDev();
+      this.devPanel.open();
+    });
     this.pause = new PauseMenu(c, {
       resume: () => this.resume(),
       settings: () => this.settingsPanel.open(() => undefined),
@@ -201,12 +232,60 @@ export class Game {
       },
       quit: () => this.setScreen('title'),
     });
+    for (const menu of [this.title.el, this.pause.el]) {
+      const b = document.createElement('button');
+      b.className = 'dev';
+      b.textContent = 'DESENVOLVEDOR';
+      b.dataset.dev = '1';
+      b.style.display = 'none';
+      b.addEventListener('click', () => this.devPanel.open());
+      menu.querySelector('.zh-menu')?.appendChild(b);
+    }
     this.renderer.domElement.addEventListener('click', () => {
       if (this.screen === 'playing' && !this.isTouch && !this.kbm.locked) this.kbm.requestLock();
     });
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.screen === 'playing' && !this.isTouch) this.setScreen('paused');
     });
+  }
+
+  /** Aplica o estado do modo desenvolvedor (só tem efeito com o acesso liberado). */
+  private applyDev(): void {
+    const d = this.dev;
+    const on = d.unlocked;
+    this.player.fly = on && d.fly;
+    this.player.speedMul = on ? d.speedMul : 1;
+    this.container.querySelectorAll<HTMLButtonElement>('button[data-dev]').forEach((b) => (b.style.display = on ? 'block' : 'none'));
+    if (!on || !d.showPerf) this.hud?.setPerf(null);
+  }
+
+  private setPlayerSkin(i: number): void {
+    const src = this.skinSources[i];
+    if (!src) return;
+    this.scene.remove(this.model.root);
+    const { clips, meta } = this.assetsChar;
+    this.model = new CharacterModel(SkeletonUtils.clone(src) as Group, clips, meta);
+    this.model.setLayer(PLAYER_LAYER);
+    this.scene.add(this.model.root);
+    this.hud?.toast(`Personagem: ${this.assetsChar.variants[i].toUpperCase()}`, 1.5);
+  }
+
+  private addDummy(): void {
+    const { clips, meta } = this.assetsChar;
+    const i = 1 + (this.dummies.length % 3);
+    const m = new CharacterModel(SkeletonUtils.clone(this.skinSources[i]) as Group, clips, meta);
+    this.scene.add(m.root);
+    const p = this.player.position;
+    const f = this.player.forward(new Vector3());
+    const a = p.clone().addScaledVector(f, 6);
+    const b = a.clone().add(new Vector3(f.z * 6, 0, -f.x * 6));
+    for (const q of [a, b]) q.y = this.world.groundHeight(q.x, q.z) + 0.1;
+    this.dummies.push(new TrainingDummy(m, this.world, a.clone(), [a, b], 1.5 + Math.random() * 2, 0.8));
+  }
+
+  private removeDummy(): void {
+    const d = this.dummies.pop();
+    if (d) this.scene.remove(d.model.root);
   }
 
   play(): void {
@@ -262,6 +341,7 @@ export class Game {
     const s = this.settings.get();
     this.resize();
     this.env?.apply(s.graphics);
+    if (this.terrainMat) setTerrainQuality(this.terrainMat, s.graphics.preset, s.graphics.shadows);
     // filtro de sombra suave só no perfil alto (PCF simples é bem mais barato em GPUs de celular)
     this.renderer.shadowMap.type = s.graphics.shadows === 'alto' ? PCFSoftShadowMap : PCFShadowMap;
     this.rig.camera.far = s.graphics.viewDistance + 500;
@@ -274,7 +354,10 @@ export class Game {
     if (s.graphics.fpsLimit > 0 && nowMs - this.lastRender < 1000 / s.graphics.fpsLimit - 1.5) return;
     const dt = Math.min(0.1, this.clock.getDelta() + 0);
     this.lastRender = nowMs;
-    this.fps += (1 / Math.max(dt, 1e-3) - this.fps) * 0.05;
+    // FPS real: quadros renderizados no último segundo (a média exponencial anterior enganava com quadros lentos)
+    this.frameTimes.push(nowMs);
+    while (this.frameTimes.length && nowMs - this.frameTimes[0] > 1000) this.frameTimes.shift();
+    this.fps = this.frameTimes.length > 1 ? ((this.frameTimes.length - 1) * 1000) / (nowMs - this.frameTimes[0]) : 0;
     this.adaptResolution(dt);
     this.pad.update(dt);
     this.kbm.update();
@@ -331,6 +414,7 @@ export class Game {
       lookPitch: 0,
       sprint: inp.isDown('sprint') || inp.sprintLatch,
       jump: inp.consume('jump'),
+      jumpHeld: inp.isDown('jump'),
       crouch,
       crouchHeld: inp.isDown('crouch'),
       prone: inp.consume('prone'),
@@ -396,7 +480,15 @@ export class Game {
       justLanded: p.justLanded,
       groundAt: this.groundAt,
     });
-    for (const d of this.dummies) d.frameUpdate(dt, alpha, this.groundAt);
+    const cam = this.rig.camera.position;
+    for (const d of this.dummies) {
+      const dist = d.model.root.position.distanceTo(cam);
+      // longe: sem sombra; muito longe: sem atualizar animação nem desenhar
+      d.model.setCastShadow(dist < 30);
+      const vis = dist < this.settings.get().graphics.viewDistance * 0.5;
+      d.model.root.visible = vis;
+      if (vis) d.frameUpdate(dt, alpha, this.groundAt);
+    }
   }
 
   private titleCamera(now: number): void {
@@ -408,7 +500,27 @@ export class Game {
     c.lookAt(center);
   }
 
+  private perfSamples: number[] = [];
+
+  private updatePerf(dt: number): void {
+    if (!this.dev.unlocked || !this.dev.showPerf) return;
+    this.perfSamples.push(dt * 1000);
+    if (this.perfSamples.length > 60) this.perfSamples.shift();
+    const avg = this.perfSamples.reduce((a, b) => a + b, 0) / this.perfSamples.length;
+    const worst = Math.max(...this.perfSamples);
+    const inf = this.renderer.info;
+    const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+    this.hud.setPerf(
+      `${avg.toFixed(1)} ms (pior ${worst.toFixed(0)}) · ${(1000 / avg).toFixed(0)} FPS\n` +
+        `draw calls ${inf.render.calls} · ${(inf.render.triangles / 1000).toFixed(0)}k tri\n` +
+        `geometrias ${inf.memory.geometries} · texturas ${inf.memory.textures}\n` +
+        `resolução ${(this.renderer.getPixelRatio() * 100).toFixed(0)}% · ${this.renderer.domElement.width}×${this.renderer.domElement.height}` +
+        (mem ? `\nJS ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : ''),
+    );
+  }
+
   private updateHud(dt: number): void {
+    this.updatePerf(dt);
     const p = this.player;
     const s = this.settings.get();
     const v = p.motor.velocity;

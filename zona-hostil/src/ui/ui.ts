@@ -254,16 +254,24 @@ export class Hud {
   private hintEl: HTMLDivElement;
   private toastEl: HTMLDivElement;
   private toastT = 0;
+  private perfEl!: HTMLPreElement;
+
+  setPerf(text: string | null): void {
+    this.perfEl.style.display = text ? 'block' : 'none';
+    if (text) this.perfEl.textContent = text;
+  }
 
   constructor(parent: HTMLElement, touch: boolean) {
     this.el.innerHTML = `<div class="zh-cross"><i></i><i></i><i></i><i></i></div>
-      <div class="zh-fps"></div><div class="zh-stance"></div><pre class="zh-debug"></pre>
+      <div class="zh-fps"></div><div class="zh-stance"></div><pre class="zh-debug"></pre><pre class="zh-perf"></pre>
       <div class="zh-hint"></div><div class="zh-toast"></div>`;
     this.fpsEl = this.el.querySelector('.zh-fps') as HTMLDivElement;
     this.stanceEl = this.el.querySelector('.zh-stance') as HTMLDivElement;
     this.debugEl = this.el.querySelector('.zh-debug') as HTMLPreElement;
     this.hintEl = this.el.querySelector('.zh-hint') as HTMLDivElement;
     this.toastEl = this.el.querySelector('.zh-toast') as HTMLDivElement;
+    this.perfEl = this.el.querySelector('.zh-perf') as HTMLPreElement;
+    this.perfEl.style.display = 'none';
     if (touch) this.el.classList.add('touch');
     parent.appendChild(this.el);
   }

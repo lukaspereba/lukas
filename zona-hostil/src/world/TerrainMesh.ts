@@ -108,7 +108,13 @@ float zhHash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)
 float zhNoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(zhHash(i), zhHash(i+vec2(1,0)), f.x), mix(zhHash(i+vec2(0,1)), zhHash(i+vec2(1,1)), f.x), f.y); }
 // amostragem anti-repetição: duas escalas com rotação
-vec4 zhTex(sampler2D t, vec2 uv){ return mix(texture2D(t, uv), texture2D(t, uv*0.31 + vec2(0.37,0.11)), 0.35); }
+vec4 zhTex(sampler2D t, vec2 uv){
+  #ifdef ZH_ANTITILE
+  return mix(texture2D(t, uv), texture2D(t, uv*0.31 + vec2(0.37,0.11)), 0.35);
+  #else
+  return texture2D(t, uv);
+  #endif
+}
 vec3 zhPlanarN(sampler2D t, vec2 uv, vec3 n){ vec3 tn = texture2D(t, uv).xyz*2.0-1.0; tn = vec3(tn.xy + n.xz, abs(tn.z)*n.y); return normalize(tn.xzy); }
 `,
       )
@@ -118,35 +124,64 @@ vec3 zhPlanarN(sampler2D t, vec2 uv, vec3 n){ vec3 tn = texture2D(t, uv).xyz*2.0
 vec3 N = normalize(vWNrm);
 vec2 uvG = vWPos.xz / 3.2;
 vec2 uvD = vWPos.xz / 4.0;
-// pesos triplanares da rocha
-vec3 tw = pow(abs(N), vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
-vec3 p = vWPos / 6.0;
-vec4 rockC = texture2D(tRock, p.zy)*tw.x + texture2D(tRock, p.xz)*tw.y + texture2D(tRock, p.xy)*tw.z;
-vec3 rnX = texture2D(tRockN, p.zy).xyz*2.0-1.0; rnX = vec3(rnX.xy + N.zy, abs(rnX.z)*N.x);
-vec3 rnY = texture2D(tRockN, p.xz).xyz*2.0-1.0; rnY = vec3(rnY.xy + N.xz, abs(rnY.z)*N.y);
-vec3 rnZ = texture2D(tRockN, p.xy).xyz*2.0-1.0; rnZ = vec3(rnZ.xy + N.xy, abs(rnZ.z)*N.z);
-vec3 rockN = normalize(rnX.zyx*tw.x + rnY.xzy*tw.y + rnZ.xyz*tw.z);
-vec4 grassC = zhTex(tGrass, uvG);
-vec4 dirtC = zhTex(tDirt, uvD);
+// 1) pesos primeiro (baratos), 2) só amostra as camadas que aparecem neste pixel
 float macro = zhNoise(vWPos.xz * 0.012) * 0.6 + zhNoise(vWPos.xz * 0.05) * 0.4;
 float slope = 1.0 - N.y;
 float rockW = smoothstep(0.24, 0.36, slope + (macro - 0.5) * 0.12);
 float dirtW = smoothstep(0.58, 0.72, macro + zhNoise(vWPos.xz * 0.21) * 0.25) * (1.0 - rockW);
 dirtW = max(dirtW, smoothstep(0.14, 0.24, slope) * (1.0 - rockW) * 0.85);
 float grassW = max(0.0, 1.0 - rockW - dirtW);
-vec3 albedo = grassC.rgb * grassW + dirtC.rgb * dirtW + rockC.rgb * rockW;
+vec3 albedo = vec3(0.0);
+zhWorldN = vec3(0.0);
+if (grassW > 0.004) {
+  albedo += zhTex(tGrass, uvG).rgb * grassW;
+  #ifdef ZH_NORMALS
+  zhWorldN += zhPlanarN(tGrassN, uvG, N) * grassW;
+  #endif
+}
+if (dirtW > 0.004) {
+  albedo += zhTex(tDirt, uvD).rgb * dirtW;
+  #ifdef ZH_NORMALS
+  zhWorldN += zhPlanarN(tDirtN, uvD, N) * dirtW;
+  #endif
+}
+if (rockW > 0.004) {
+  vec3 tw = pow(abs(N), vec3(4.0)); tw /= (tw.x + tw.y + tw.z);
+  vec3 p = vWPos / 6.0;
+  albedo += (texture2D(tRock, p.zy)*tw.x + texture2D(tRock, p.xz)*tw.y + texture2D(tRock, p.xy)*tw.z).rgb * rockW;
+  #ifdef ZH_NORMALS
+  vec3 rnX = texture2D(tRockN, p.zy).xyz*2.0-1.0; rnX = vec3(rnX.xy + N.zy, abs(rnX.z)*N.x);
+  vec3 rnY = texture2D(tRockN, p.xz).xyz*2.0-1.0; rnY = vec3(rnY.xy + N.xz, abs(rnY.z)*N.y);
+  vec3 rnZ = texture2D(tRockN, p.xy).xyz*2.0-1.0; rnZ = vec3(rnZ.xy + N.xy, abs(rnZ.z)*N.z);
+  zhWorldN += normalize(rnX.zyx*tw.x + rnY.xzy*tw.y + rnZ.xyz*tw.z) * rockW;
+  #endif
+}
 albedo *= mix(0.82, 1.12, macro);
 albedo = mix(albedo, albedo * vec3(1.08, 1.0, 0.82), smoothstep(0.55, 0.8, macro) * grassW);
 diffuseColor.rgb *= albedo;
-vec3 gN = zhPlanarN(tGrassN, uvG, N);
-vec3 dN = zhPlanarN(tDirtN, uvD, N);
-zhWorldN = normalize(gN * grassW + dN * dirtW + rockN * rockW);
+#ifdef ZH_NORMALS
+zhWorldN = normalize(zhWorldN);
+#else
+zhWorldN = N;
+#endif
 `,
       )
       .replace('#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(zhWorldN, 0.0)).xyz);');
   };
-  mat.customProgramCacheKey = () => 'zh-terrain-v1';
+  mat.customProgramCacheKey = () => `zh-terrain-v2-${Object.keys(mat.defines ?? {}).sort().join(',')}`;
   return mat;
+}
+
+/** Qualidade do terreno: normais por camada (médio/alto) e anti-repetição (alto). */
+export function setTerrainQuality(mat: MeshStandardMaterial, q: 'baixo' | 'medio' | 'alto' | 'personalizado', shadows: string): void {
+  const d: Record<string, string> = {};
+  if (q !== 'baixo' && shadows !== 'desligado') d.ZH_NORMALS = '';
+  if (q === 'alto') d.ZH_ANTITILE = '';
+  const key = Object.keys(d).sort().join(',');
+  if (key !== Object.keys(mat.defines ?? {}).sort().join(',')) {
+    mat.defines = d;
+    mat.needsUpdate = true;
+  }
 }
 
 export function createTerrainMesh(hf: Heightfield, mat: MeshStandardMaterial): Mesh {
