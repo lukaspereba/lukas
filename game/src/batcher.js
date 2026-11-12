@@ -7,6 +7,8 @@ const _c = new THREE.Color(); const colorCache = new Map();
 function lin(hex) { let v = colorCache.get(hex); if (!v) { _c.setHex(hex); v = [_c.r, _c.g, _c.b]; colorCache.set(hex, v); } return v; }
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
 
+// Depois de enviar à GPU, libera a cópia em memória (economiza RAM no celular).
+export function freeArray() { this.array = null; }
 class Bucket { constructor() { this.p = []; this.n = []; this.u = []; this.c = []; this.l = []; this.i = []; this.count = 0; } }
 
 export class Batcher {
@@ -64,7 +66,7 @@ export class Batcher {
       g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(B.c), 3));
       g.setAttribute('layer', new THREE.BufferAttribute(new Float32Array(B.l), 1));
       g.setIndex(B.count > 65535 ? new THREE.BufferAttribute(new Uint32Array(B.i), 1) : new THREE.BufferAttribute(new Uint16Array(B.i), 1));
-      g.computeBoundingSphere(); tris += B.i.length / 3;
+      g.computeBoundingSphere(); tris += B.i.length / 3; for (const k in g.attributes) g.attributes[k].onUpload(freeArray); g.index.onUpload(freeArray);
       const mesh = new THREE.Mesh(g, B.kind === 2 ? matCutout : matOpaque);
       mesh.matrixAutoUpdate = false; mesh.userData.kind = B.kind; mesh.receiveShadow = true; mesh.castShadow = B.kind === 0;
       out.push(mesh);

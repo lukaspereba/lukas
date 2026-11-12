@@ -7,7 +7,7 @@ export const PRESETS = {
   alto: { scale: 1.0, shadows: 2048, dist: 300, detail: 125, particles: 1, aa: true, tex: 512 },
 };
 const mobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-const DEF = { preset: mobile ? 'medio' : 'alto', ...PRESETS[mobile ? 'medio' : 'alto'], fpsCap: 60, sens: 1, adsSens: 0.7, invertY: false, fov: 75, volume: 0.8, music: 0.5, camera: 'fps', autoFire: false, gyro: false, diag: false, bots: 23, difficulty: 'normal', vibrate: true, leftHanded: false };
+const DEF = { preset: mobile ? 'medio' : 'alto', ...PRESETS[mobile ? 'medio' : 'alto'], fpsCap: 60, sens: 1, adsSens: 0.7, invertY: false, fov: 75, volume: 0.8, music: 0.5, camera: 'fps', autoFire: false, gyro: false, diag: false, dynRes: true, aimAssist: true, bots: 23, difficulty: 'normal', vibrate: true, leftHanded: false };
 export const S = Object.assign({}, DEF, store.get('settings', {}));
 export function saveSettings() { store.set('settings', S); }
 export function applyPreset(name) { if (PRESETS[name]) Object.assign(S, PRESETS[name]); S.preset = name; saveSettings(); }
@@ -75,4 +75,4 @@ export const CHARS = [
 ];
 export const PETS = [{ id: 'belo', name: 'Belo', kind: 'Gato cinza' }, { id: 'louro', name: 'Louro', kind: 'Periquito' }, { id: 'nina', name: 'Nina', kind: 'Cachorrinha salsicha' }];
 export const OUTFITS = [{ id: 'padrao', n: 'Roupa da foto', price: 0 }, { id: 'time', n: 'Uniforme do Time', price: 0, shirt: 0x15171b, trim: 0xd9a520, pants: 0x15171b, shirtKind: 'jersey', pantsKind: 'short', shoes: 0xd9a520 }, { id: 'tatico', n: 'Tático Urbano', price: 1500, shirt: 0x4a4f44, trim: 0x2a2d26, pants: 0x3a3d34, shirtKind: 'vest', pantsKind: 'long', shoes: 0x1a1b1d }, { id: 'quebrada', n: 'Estilo Quebrada', price: 2500, shirt: 0xd9402a, trim: 0xffffff, pants: 0x2a4a8a, shirtKind: 'tee', pantsKind: 'long', shoes: 0xffffff }];
-export const DIFF = { facil: { acc: 0.45, react: 0.9, dmg: 0.6 }, normal: { acc: 0.7, react: 0.55, dmg: 0.8 }, dificil: { acc: 1.0, react: 0.3, dmg: 1.0 } };
+export const DIFF = { facil: { acc: 0.42, react: 1.0, dmg: 0.5 }, normal: { acc: 0.68, react: 0.7, dmg: 0.7 }, dificil: { acc: 1.0, react: 0.3, dmg: 1.0 } };

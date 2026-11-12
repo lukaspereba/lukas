@@ -1,0 +1,10 @@
+// Capturas: combate com bots, HUD em paisagem, paraquedas, veículo, interior do shopping.
+module.exports = async ({ p, shot, ev, sleep }) => {
+  const pre = process.env.PRE || 'p';
+  await ev(() => { const G = __G; G.simPause = true; G.startMatch('treino', 1); const pl = G.player; pl.teleport(-20, G.terr.height(-20, -58) + 0.05, -58); pl.yaw = -1.2; __sim(0.5); G.dev.god = true; for (let i = 0; i < 4; i++) G.devBots('add'); G.devBots('ally'); const bs = G.bots.filter((b) => b.alive).sort((a, c) => a.pos.distanceTo(pl.pos) - c.pos.distanceTo(pl.pos)).slice(0, 5); bs.forEach((b, i) => { b.place(pl.pos.x + 9 + i * 2.5, pl.pos.z - 4 + i * 2.2, pl.pos.y); }); __sim(1.2); const t = bs[1]; const dx = t.pos.x - pl.pos.x, dz = t.pos.z - pl.pos.z; pl.yaw = Math.atan2(-dx, -dz); pl.pitch = 0; G.__I.fire = true; __sim(0.4); G.simPause = false; });
+  await sleep(900); await shot(pre + '_fight'); await ev(() => { __G.__I.fire = false; __G.player.camMode = 'tps'; }); await sleep(900); await shot(pre + '_fight_tps');
+  await ev(() => { const G = __G, pl = G.player; G.simPause = true; pl.camMode = 'fps'; G.dev.freeze = true; pl.teleport(60, 180, -150); pl.mode = 'fall'; pl.pitch = -0.9; pl.yaw = 2.6; __sim(2.2); G.__hits.add('jump'); __sim(1.5); G.simPause = false; }); await sleep(900); await shot(pre + '_chute');
+  await ev(() => { const G = __G, pl = G.player; G.simPause = true; pl.mode = 'ground'; pl.teleport(72, G.terr.height(72, -207) + 1.3, -208); pl.yaw = -Math.PI / 2; pl.pitch = 0; __sim(0.8); G.simPause = false; }); await sleep(900); await shot(pre + '_mall');
+  await ev(() => { const G = __G, pl = G.player; G.simPause = true; pl.teleport(-40, G.terr.height(-40, -36) + 0.2, -36); __sim(0.3); G.devVehicles(); const v = G.vehicles[0]; pl.teleport(v.pos.x + 2, v.pos.y + 0.2, v.pos.z); __sim(0.3); G.__hits.add('interact'); __sim(0.5); G.__keys.KeyW = true; __sim(1.5); G.simPause = false; }); await sleep(900); await shot(pre + '_car'); await ev(() => { __G.__keys.KeyW = false; });
+  console.log(JSON.stringify(await ev(() => ({ calls: __G.stats.calls, tris: __G.stats.tris, mode: __G.player.mode }))));
+};

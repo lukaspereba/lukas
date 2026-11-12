@@ -5,6 +5,7 @@ import { clamp, lerp, TAU, mulberry } from './util.js';
 import { CHARS, OUTFITS } from './config.js';
 
 const LT = 0.43, LS = 0.445, HIP0 = 0.04;
+const CANOPY = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.5, depthWrite: false });
 let chuteGeo = null;
 function chute() { if (!chuteGeo) { const sp = [['hemi', [0, 5.0, 0, 2.7, 1.5, 2.7], 0xd9a520]]; for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU, x = Math.cos(a) * 2.5, z = Math.sin(a) * 2.5; const len = Math.hypot(x, 3.5, z); sp.push(['box', [x / 2, 3.25, z / 2, 0.015, len, 0.015, Math.atan2(Math.hypot(x, z), 3.5) * (z >= 0 ? 1 : -1) * Math.abs(Math.sin(a)), 0, -Math.atan2(x, 3.5) * Math.abs(Math.cos(a))], 0x2a2a2a]); if (i % 2) sp.push(['hemi', [x * 0.5, 5.02 + 0.2, z * 0.5, 1.2, 0.9, 1.2], 0x15171b]); } chuteGeo = part(sp); } return chuteGeo; }
 
@@ -47,7 +48,7 @@ export class Humanoid {
     add(spine, chest);
     // cabeça com rosto em geometria
     const hs = [['sphHi', [0, 0.1, 0, 0.092, 0.116, 0.1], skin], ['sph', [0, 0.045, -0.014, 0.074, 0.066, 0.08], skin], ['box', [0, 0.085, -0.1, 0.02, 0.042, 0.03, -0.25, 0, 0], shade(skin, 0.92)], ['sph', [0.093, 0.095, 0.004, 0.014, 0.028, 0.02], shade(skin, 0.9)], ['sph', [-0.093, 0.095, 0.004, 0.014, 0.028, 0.02], shade(skin, 0.9)]];
-    if (L.hair !== 'balaclava') { for (const x of [0.034, -0.034]) { hs.push(['sph', [x, 0.116, -0.086, 0.017, 0.011, 0.008], 0xf2f0ea]); hs.push(['sph', [x, 0.116, -0.092, 0.0085, 0.0085, 0.004], L.eye || 0x3a2416]); hs.push(['box', [x, 0.138, -0.09, 0.03, 0.007, 0.01, 0, 0, x > 0 ? -0.12 : 0.12], L.hairCol]); } hs.push(['box', [0, 0.042, -0.089, 0.036, 0.008, 0.01], shade(skin, 0.62)]); hs.push(['box', [0, 0.034, -0.088, 0.03, 0.008, 0.008], shade(skin, 0.8)]); }
+    if (L.hair !== 'balaclava') { for (const x of [0.034, -0.034]) { hs.push(['sph', [x, 0.116, -0.086, 0.017, 0.011, 0.008], 0xf2f0ea]); hs.push(['sph', [x, 0.116, -0.092, 0.0085, 0.0085, 0.004], L.eye || 0x3a2416]); hs.push(['box', [x, 0.138, -0.09, 0.03, 0.007, 0.01, 0, 0, x > 0 ? -0.12 : 0.12], L.hairCol]); } hs.push(['box', [0, 0.04, -0.091, 0.03, 0.006, 0.008], 0x7a3a34]); }
     else { hs.push(['box', [0, 0.116, -0.094, 0.11, 0.022, 0.012], skin]); for (const x of [0.03, -0.03]) hs.push(['sph', [x, 0.116, -0.099, 0.012, 0.009, 0.005], 0x1a1a1a]); }
     if (L.mustache) hs.push(['box', [0, 0.055, -0.094, 0.044, 0.006, 0.008], shade(L.hairCol, 1.3)]);
     if (L.earring) hs.push(['sph', [-0.097, 0.07, 0.002, 0.007, 0.007, 0.007], 0xf4f4f4]);
@@ -65,9 +66,10 @@ export class Humanoid {
       if (shoes != null) { sp.push(['sph', [0, -0.405, -0.045, 0.05, 0.042, 0.125], shoes]); sp.push(['box', [0, -0.437, -0.04, 0.094, 0.018, 0.25], shade(shoes, 0.5)]); } else { sp.push(['sph', [0, -0.415, -0.05, 0.043, 0.03, 0.115], skin]); }
       add(sn, sp); return [th, sn]; };
     [this.thR, this.snR] = leg(1); [this.thL, this.snL] = leg(-1);
-    this.gun = G(spine, 0.1, 0.33, -0.26); this.canopy = new THREE.Mesh(chute(), VMAT_DS); this.canopy.visible = false; r.add(this.canopy);
+    this.gun = G(spine, 0.1, 0.33, -0.26); this.canopy = new THREE.Mesh(chute(), CANOPY); this.canopy.visible = false; r.add(this.canopy);
     r.scale.setScalar((L.h || 1) * 0.975);
   }
+  setShadow(on) { if (this._sh === on) return; this._sh = on; this.root.traverse((o) => { if (o.isMesh && o !== this.canopy) o.castShadow = on; }); }
   setWeapon(obj) { while (this.gun.children.length) this.gun.remove(this.gun.children[0]); if (obj) this.gun.add(obj); }
   // s: {speed, fwd, crouch, prone, slide, air, pitch, armed:'rifle'|'pistol'|'melee'|null, sprint, dead, chute, fall, drive, reload(0..1|0), swing(0..1|0), fire}
   update(dt, s) {

@@ -35,7 +35,7 @@ export class Match {
     zoneMesh.visible = z.active; this.spawnContracts(rng); this.respawns = {};
     if (mode === 'treino') { this.phase = 'play'; const P = G.terr.height(0, -34); pl.teleport(0, P + 0.2, -36); pl.mode = 'ground'; pl.yaw = Math.PI; this.loadout(pl); pl.armor = 150; pl.inv.plate = 5; pl.inv.frag = 2; pl.inv.smoke = 2; pl.inv.uav = 1; pl.inv.drone = 1; pl.cash = 5000; for (const b of G.bots) { this.spawnBotGround(b, rng); giveStarter(b, rng); } }
     else if (mode === 'gulag') { this.phase = 'play'; this.startGulag(true); }
-    else { this.phase = 'count'; this.countT = 4; const a = rng() * 6.283; this.pd = { x: Math.cos(a), z: Math.sin(a) }; this.planeT = 0; this.planeDur = 26; pl.mode = 'plane'; const off = (rng() - 0.5) * 160; this.pOff = { x: -this.pd.z * off, z: this.pd.x * off };
+    else { this.phase = 'count'; this.countT = 4; const a = rng() * 6.283; this.pd = { x: Math.cos(a), z: Math.sin(a) }; this.planeT = 0; this.planeDur = 26; pl.mode = 'plane'; pl.weapons = [newWeapon('lambari'), null]; pl.cur = 0; pl.ammo['9mm'] = 45; pl.spawnProt = 0; const off = (rng() - 0.5) * 160; this.pOff = { x: -this.pd.z * off, z: this.pd.x * off };
       for (const b of G.bots) { b.mode = 'plane'; b.jumpT = 3 + rng() * (this.planeDur - 6); if (b.ally) b.jumpT = 999; giveStarter(b, rng); } }
     G.mode = 'play'; snd.ui('ok');
   }

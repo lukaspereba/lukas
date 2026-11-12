@@ -1,10 +1,12 @@
 // Carapicuíba Royale — inicialização, lobby 3D e laço principal.
 import * as THREE from 'three';
 import { G } from './state.js';
-import { S } from './config.js';
-import { initEngine, updateEngine, render, setFov } from './engine.js';
+import { S, applyPreset } from './config.js';
+import { initEngine, updateEngine, render, setFov, dynamicResolution, applyQuality } from './engine.js';
 import { initFx, updateFx } from './fx.js';
-import { initInput, pollKeys, endFrame, I } from './input.js';
+import { initInput, pollKeys, endFrame, I, layout as _l0 } from './input.js';
+import * as inputMod from './input.js';
+const layoutRef = () => inputMod.layout;
 import { buildNav } from './nav.js';
 import { initLoot, updateLoot, Loot, buy } from './loot.js';
 import { initVehicles, spawnVehicles, updateVehicles } from './vehicles.js';
@@ -55,7 +57,7 @@ function tick(dt) {
 function frame(t) {
   requestAnimationFrame(frame); const cap = S.fpsCap; if (cap && t - last < 1000 / cap - 1.2) return;
   const raw = (t - last) / 1000; last = t; const dt = Math.min(0.05, Math.max(0.001, raw)); G.dt = dt; G.time += dt; G.frame++; fpsAcc += raw; fpsN++; if (fpsAcc >= 0.5) { G.stats.fps = fpsN / fpsAcc; G.stats.ms = (fpsAcc / fpsN) * 1000; fpsAcc = 0; fpsN = 0; }
-  if (G.simPause) return; tick(dt); render(); UI.update(dt); endFrame();
+  if (G.simPause) return; tick(dt); render(); UI.update(dt); endFrame(); if (G.mode === 'play') dynamicResolution(raw);
 }
 // Avanço rápido sem renderizar (usado pelos testes automatizados e para medir o custo de simulação).
 window.__sim = (seconds, step = 1 / 30, each) => { const n = Math.round(seconds / step); const t0 = performance.now(); for (let i = 0; i < n; i++) { G.dt = step; G.time += step; G.frame++; tick(step); if (each) each(i); UI.update(step); endFrame(); if (G.mode !== 'play' && !each) break; } return (performance.now() - t0) / n; };
@@ -66,5 +68,5 @@ function boot() { const msg = $('ld-msg'); const step = (txt, fn) => new Promise
     .then(() => { $('loading').hidden = true; last = performance.now(); requestAnimationFrame(frame); window.__G = G; window.__ready = true; })
     .catch((e) => { console.error(e); msg.textContent = 'Erro ao iniciar: ' + e.message; });
 }
-window.__THREE = THREE; G.__W = WEAPONS; G.__mods = { Humanoid, lookFor, botLook, Pet, buildWeapon }; G.__render = render; G.__I = I; G.__keys = I.keys; G.__hits = I.hits; G.__Loot = Loot; G.__buy = buy;
+window.__THREE = THREE; G.__W = WEAPONS; G.__S = S; G.__applyPreset = applyPreset; G.__applyQuality = applyQuality; G.__layout = () => layoutRef(); G.__mods = { Humanoid, lookFor, botLook, Pet, buildWeapon }; G.__render = render; G.__I = I; G.__keys = I.keys; G.__hits = I.hits; G.__Loot = Loot; G.__buy = buy;
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(boot); else boot();

@@ -16,10 +16,13 @@ export const DEF_LAYOUT = {
   field: { ax: 'r', ay: 'b', x: 132, y: 300, s: 44, label: '⌖' }, streak: { ax: 'r', ay: 'b', x: 184, y: 300, s: 44, label: '✈' }, interact: { ax: 'c', ay: 'b', x: 0, y: 250, s: 62, label: 'USAR' },
   bag: { ax: 'r', ay: 't', x: 12, y: 168, s: 44, label: '🎒' }, cam: { ax: 'r', ay: 't', x: 64, y: 168, s: 44, label: '👁' }, pause: { ax: 'l', ay: 't', x: 10, y: 8, s: 40, label: '☰' }, melee: { ax: 'r', ay: 'b', x: 184, y: 190, s: 44, label: '🗡' },
 };
-export let layout = {};
-export function loadLayout() { const saved = store.get('hud', {}); layout = {}; for (const k in DEF_LAYOUT) layout[k] = { ...DEF_LAYOUT[k], o: 0.62, ...(saved[k] || {}) }; return layout; }
-export function saveLayout() { const o = {}; for (const k in layout) { const l = layout[k]; o[k] = { x: l.x, y: l.y, s: l.s, o: l.o }; } store.set('hud', o); }
-export function resetLayout() { store.set('hud', {}); loadLayout(); applyLayout(); }
+// Layout padrão para paisagem (tela baixa): o conjunto da direita se espalha na horizontal e fica abaixo do minimapa.
+const LAND = { joy: [34, 26, 150], run: [200, 36, 58], fireL: [18, 196, 56], fire: [46, 64, 84], ads: [150, 28, 60], jump: [28, 162, 56], crouch: [100, 158, 52], prone: [162, 100, 48], reload: [222, 40, 50], melee: [222, 100, 44], lethal: [166, 164, 46], tactical: [222, 156, 46], plate: [282, 40, 46], field: [282, 96, 44], streak: [280, 150, 44], interact: [0, 96, 60], bag: [148, 10, 42], cam: [148, 60, 42], pause: [10, 8, 40] };
+export let layout = {}; let layKey = '';
+const orient = () => (innerWidth > innerHeight * 1.15 ? 'l' : 'p');
+export function loadLayout() { layKey = orient(); const saved = store.get('hud_' + layKey, {}); layout = {}; for (const k in DEF_LAYOUT) { const d = { ...DEF_LAYOUT[k] }; if (layKey === 'l' && LAND[k]) { d.x = LAND[k][0]; d.y = LAND[k][1]; d.s = LAND[k][2]; } layout[k] = { ...d, o: 0.62, ...(saved[k] || {}) }; } return layout; }
+export function saveLayout() { const o = {}; for (const k in layout) { const l = layout[k]; o[k] = { x: l.x, y: l.y, s: l.s, o: l.o }; } store.set('hud_' + layKey, o); }
+export function resetLayout() { store.set('hud_' + layKey, {}); loadLayout(); applyLayout(); }
 export function applyLayout() { for (const k in layout) { const e = document.querySelector(`.hb[data-k="${k}"]`); if (!e) continue; const l = layout[k]; e.style.width = e.style.height = l.s + 'px'; e.style.left = e.style.right = e.style.top = e.style.bottom = ''; if (l.ax === 'l') e.style.left = `calc(${l.x}px + env(safe-area-inset-left, 0px))`; else if (l.ax === 'r') e.style.right = `calc(${l.x}px + env(safe-area-inset-right, 0px))`; else e.style.left = `calc(50% + ${l.x - l.s / 2}px)`; if (l.ay === 't') e.style.top = `calc(${l.y}px + env(safe-area-inset-top, 0px))`; else e.style.bottom = `calc(${l.y}px + env(safe-area-inset-bottom, 0px))`; e.style.opacity = l.o; e.style.fontSize = Math.max(9, l.s * 0.2) + 'px'; } }
 
 let joyId = null, joyX = 0, joyY = 0, lookId = null, lastX = 0, lastY = 0, fireId = null; const btnPtr = new Map();
@@ -41,6 +44,7 @@ export function initInput() {
   root.addEventListener('pointermove', (ev) => { if (ev.pointerId === joyId) { moveJoy(ev, document.querySelector('.hb.joy')); return; } if (ev.pointerId === fireId) { look(ev.clientX - lastX, ev.clientY - lastY); lastX = ev.clientX; lastY = ev.clientY; } });
   const up = (ev) => { if (ev.pointerId === joyId) { joyId = null; I.mx = I.my = 0; const j = document.querySelector('.hb.joy'); j.firstChild.style.transform = ''; return; } const k = btnPtr.get(ev.pointerId); if (k) { btnPtr.delete(ev.pointerId); const b = document.querySelector(`.hb[data-k="${k}"]`); b && b.classList.remove('on'); press(k, false, ev); } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
+  addEventListener('resize', () => { if (orient() !== layKey && !G.hudEdit) { loadLayout(); applyLayout(); } });
   // área de câmera: qualquer toque fora dos botões
   const cv = $('gl'); const look = (dx, dy) => { const z = G.zoomSens || 1; const k = 0.0042 * S.sens * (I.ads ? S.adsSens : 1) * z; I.lx += dx * k; I.ly += dy * k * (S.invertY ? -1 : 1); };
   cv.addEventListener('pointerdown', (ev) => { initAudio(); if (ev.pointerType === 'mouse') { if (G.mode === 'play' && !G.uiOpen) { if (!I.locked) { try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* sem pointer lock */ } } if (ev.button === 0 && I.locked) I.fire = true; if (ev.button === 2) I.ads = true; } if (I.locked) return; } else I.touch = true; if (lookId === null) { lookId = ev.pointerId; lastX = ev.clientX; lastY = ev.clientY; try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* ok */ } } });

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { L } from './textures.js';
 import { fbm, smooth, clamp } from './util.js';
+import { freeArray } from './batcher.js';
 
 export const HALF = 320, CS = 4, NC = 160, NV = NC + 1;
 export const CT = { GRASS: 0, ASPHALT: 1, SIDEWALK: 2, DIRT: 3, TURF: 4, COURT: 5, CONCRETE: 6, WATER: 7, LOT: 8, FLOOR: 9 };
@@ -85,7 +86,7 @@ export class Terrain {
         for (let v = 0; v < 4; v++) { const p = q * 4 + v; P[p * 3] = xs[v]; P[p * 3 + 1] = hs[v]; P[p * 3 + 2] = zs[v]; nrm(is[v], js[v], Nn, p * 3); U[p * 2] = uv[v * 2]; U[p * 2 + 1] = uv[v * 2 + 1]; let s = 1; if (t === CT.GRASS || t === CT.DIRT) s = 0.78 + fbm(xs[v] / 23, zs[v] / 23, 2, 9) * 0.44; C[p * 3] = col.r * s; C[p * 3 + 1] = col.g * s; C[p * 3 + 2] = col.b * s; Ly[p] = layer; }
         const s4 = q * 4; I.set([s4, s4 + 2, s4 + 1, s4, s4 + 3, s4 + 2], q * 6); q++;
       }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(Nn, 3)); g.setAttribute('uv', new THREE.BufferAttribute(U, 2)); g.setAttribute('color', new THREE.BufferAttribute(C, 3)); g.setAttribute('layer', new THREE.BufferAttribute(Ly, 1)); g.setIndex(new THREE.BufferAttribute(I, 1)); g.computeBoundingSphere();
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.BufferAttribute(Nn, 3)); g.setAttribute('uv', new THREE.BufferAttribute(U, 2)); g.setAttribute('color', new THREE.BufferAttribute(C, 3)); g.setAttribute('layer', new THREE.BufferAttribute(Ly, 1)); g.setIndex(new THREE.BufferAttribute(I, 1)); g.computeBoundingSphere(); for (const k in g.attributes) g.attributes[k].onUpload(freeArray); g.index.onUpload(freeArray);
       const m = new THREE.Mesh(g, material); m.matrixAutoUpdate = false; m.receiveShadow = true; m.userData.kind = 3; meshes.push(m);
     }
     return meshes;

@@ -30,7 +30,7 @@ export function initEngine(canvas) {
 }
 function glowTex() { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 2, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.12, 'rgba(255,250,225,.95)'); g.addColorStop(0.3, 'rgba(255,240,200,.25)'); g.addColorStop(1, 'rgba(255,240,200,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); }
 export function resize() {
-  const { renderer, camera, vmCam } = G; const w = innerWidth, h = innerHeight; const pr = Math.min(devicePixelRatio || 1, 2) * S.scale;
+  const { renderer, camera, vmCam } = G; const w = innerWidth, h = innerHeight; const pr = Math.min(devicePixelRatio || 1, 2) * S.scale * (S.dynRes !== false ? G.dynScale || 1 : 1);
   renderer.setPixelRatio(pr); renderer.setSize(w, h, false); const a = w / h; camera.aspect = a; vmCam.aspect = a; G.aspect = a; G.resW = Math.round(w * pr); G.resH = Math.round(h * pr); setFov(S.fov); vmCam.fov = a < 1 ? 80 : 55; vmCam.updateProjectionMatrix();
 }
 // FOV base é horizontal em 16:9; em telas estreitas (retrato) preserva um campo horizontal mínimo.
@@ -40,7 +40,9 @@ export function applyQuality() {
   if (S.shadows > 0 && sun.shadow.mapSize.x !== S.shadows) { sun.shadow.mapSize.set(S.shadows, S.shadows); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
   scene.fog.near = S.dist * 0.42; scene.fog.far = S.dist * 0.99; resize(); G.world.matO.needsUpdate = true; G.world.matC.needsUpdate = true;
 }
-let cullT = 0;
+let cullT = 0, dynT = 2;
+// Resolução dinâmica: se o FPS cair abaixo da meta, reduz a resolução interna; quando sobra folga, devolve.
+export function dynamicResolution(dt) { if (S.dynRes === false) { if (G.dynScale && G.dynScale !== 1) { G.dynScale = 1; resize(); } return; } dynT -= dt; if (dynT > 0 || !G.stats.fps) return; dynT = 1.5; const target = Math.min(S.fpsCap || 60, 60), f = G.stats.fps, d = G.dynScale || 1; let n = d; if (f < target * 0.8) n = Math.max(0.55, d - 0.1); else if (f < target * 0.9) n = Math.max(0.55, d - 0.05); else if (f > target * 0.97 && d < 1) n = Math.min(1, d + 0.04); if (n !== d) { G.dynScale = n; resize(); } }
 export function updateEngine(dt) {
   const { camera, sky, sun, sunDir, sunSprite, world } = G; const cp = camera.position;
   sky.position.copy(cp); sunSprite.position.copy(cp).addScaledVector(sunDir, 900);
