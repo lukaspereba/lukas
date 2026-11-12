@@ -20,15 +20,23 @@ O jogo funciona em retrato e em paisagem; em paisagem a área de visão é maior
 | Correr automático | Botão CORRER (liga/desliga; o analógico continua guiando) |
 | Atirar / mirar | Botão vermelho / MIRA |
 | Pular, agachar, deitar | PULO, AGACH, DEITA. Agachar correndo = deslize. Pular contra um muro = escalar |
-| Trocar arma | Tocar no slot da arma |
+| Trocar arma | Tocar no nome da arma (canto superior esquerdo) |
 | Granada letal / tática / placa | ✸ / ☁ / ▰ |
 | Drone, caixa de munição / UAV | ⌖ / ✈ (aparecem quando você tem o item) |
 | Interagir (portas, caixas, lojas, veículos, contratos) | USAR |
-| Inventário / câmera FPS-TPS / pausa | 🎒 / 👁 / ☰ |
+| Inventário / pausa | 🎒 / ☰ (a troca de câmera 1ª/3ª pessoa fica no menu de pausa) |
 
 Teclado e mouse: WASD, Shift, Espaço, C, Z, R, E, G, Q, V, 1-2-3, 4 (placa), X, 5, T, M, Tab, Esc.
 
 **Editor de HUD:** Ajustes → Botões na tela → Editar HUD (mover, redimensionar, opacidade, salvar, restaurar). O layout é salvo separadamente para retrato e paisagem.
+
+### Modo Deus (explorar o mapa)
+
+Toque 5 vezes na logo do menu (ou Ajustes → Código) e digite `djalma67`. Você fica invencível, o gás não machuca e os bots ignoram você.
+Na partida, ☰ abre os controles: ligar/desligar, voar (PULO sobe, AGACH desce), velocidade 1×/2×/4× e ir direto a cada local.
+O botão "Explorar o mapa agora" abre o Treino livre, que não tem zona.
+
+O HUD mostra só o essencial: vivos/abates, vida e colete, arma e munição, minimapa com o tempo da zona. Botões de granada, placa, drone e UAV só aparecem quando você tem o item.
 
 ### Modo desenvolvedor
 

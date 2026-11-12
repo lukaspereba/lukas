@@ -12,17 +12,15 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #hud,#touch,#menu,#panel,#toasts,#loading,#edit{position:fixed;inset:0;pointer-events:none}
 #hud>*{position:absolute}
 /* ── HUD ── */
-#h-stat{left:calc(58px + var(--sl));top:calc(10px + var(--st));display:flex;gap:6px;font:700 15px var(--disp);letter-spacing:.05em}
-#h-stat span{background:var(--panel);padding:4px 9px;border-radius:4px;border-left:3px solid var(--acc);font-variant-numeric:tabular-nums}
-#h-stat span:nth-child(2){border-color:var(--bad)}#h-stat span:nth-child(3){border-color:var(--good)}
-#h-feed{left:calc(10px + var(--sl));top:calc(52px + var(--st));font-size:12px;display:flex;flex-direction:column;gap:3px;max-width:62vw}
-#h-feed div{background:rgba(10,13,16,.62);padding:2px 7px;border-radius:3px;width:fit-content;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#h-stat{left:calc(58px + var(--sl));top:calc(13px + var(--st));font:700 14px var(--disp);letter-spacing:.06em;text-shadow:0 1px 4px #000;font-variant-numeric:tabular-nums;white-space:nowrap}
+#h-stat b{color:var(--acc)}
+#h-feed{left:calc(12px + var(--sl));top:calc(126px + var(--st));font-size:11.5px;display:flex;flex-direction:column;gap:2px;max-width:56vw;text-shadow:0 1px 3px #000}
+#h-feed div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 #h-feed i{color:var(--dim);font-style:normal;margin:0 4px}#h-feed b.ally{color:var(--acc2)}
-#h-mini{right:calc(10px + var(--sr));top:calc(10px + var(--st));width:128px}
-#h-mini canvas{width:128px;height:128px;border-radius:6px;border:1px solid var(--line);background:#20262c;display:block;pointer-events:auto}
-#h-zone{margin-top:4px;background:var(--panel);border-radius:4px;padding:3px 8px;font:700 14px var(--disp);letter-spacing:.06em;display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
-#h-zone b{color:var(--acc)}#h-contract{margin-top:4px;background:var(--panel);border-left:3px solid var(--acc);border-radius:4px;padding:4px 7px;font-size:11px;line-height:1.25}
-#h-compass{left:50%;top:calc(10px + var(--st));transform:translateX(-50%);font:700 14px var(--disp);letter-spacing:.1em;background:var(--panel);padding:3px 12px;border-radius:4px;font-variant-numeric:tabular-nums}
+#h-mini{right:calc(10px + var(--sr));top:calc(10px + var(--st));width:112px}
+#h-mini canvas{width:112px;height:112px;border-radius:6px;border:1px solid var(--line);background:#20262c;display:block;pointer-events:auto}
+#h-zone{position:absolute;left:1px;right:1px;top:89px;height:22px;border-radius:0 0 5px 5px;background:linear-gradient(transparent,rgba(0,0,0,.7));font:700 13px/26px var(--disp);letter-spacing:.08em;text-align:center;color:var(--acc);font-variant-numeric:tabular-nums;pointer-events:none}
+#h-contract{margin-top:4px;background:rgba(12,15,19,.6);border-left:3px solid var(--acc);border-radius:4px;padding:4px 6px;font-size:10.5px;line-height:1.25}
 #h-banner{left:50%;top:18%;transform:translateX(-50%);text-align:center;width:min(92vw,560px);transition:opacity .3s;opacity:0}
 #h-banner b{display:block;font:800 clamp(24px,6vw,40px)/1 var(--disp);letter-spacing:.06em;text-shadow:0 2px 14px #000}#h-banner span{font:600 14px var(--body);color:var(--acc);text-shadow:0 1px 6px #000}
 #h-prompt{left:50%;bottom:calc(38% + var(--sb));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:6px 12px;font-size:13px;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
@@ -40,21 +38,20 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 #h-scope::before,#h-scope::after{content:"";position:absolute;background:#0a0a0a}#h-scope::before{left:50%;top:calc(50% - var(--r));height:calc(var(--r)*2);width:1.5px;margin-left:-.75px}#h-scope::after{top:50%;left:calc(50% - var(--r));width:calc(var(--r)*2);height:1.5px;margin-top:-.75px}
 #h-dmg,#h-gas,#h-flash{inset:0;opacity:0}#h-dmg{background:radial-gradient(ellipse at center,transparent 45%,rgba(190,20,10,.75) 100%)}#h-gas{background:radial-gradient(ellipse at center,rgba(255,150,40,.12) 20%,rgba(230,110,20,.5) 100%)}#h-flash{background:#fff}
 #h-dir{left:50%;top:50%;width:150px;height:150px;margin:-75px;opacity:0}#h-dir::before{content:"";position:absolute;left:50%;top:0;margin-left:-22px;border:22px solid transparent;border-bottom:14px solid rgba(232,60,40,.9);border-top:0;transform:rotate(180deg)}
-#h-weap{left:50%;bottom:calc(10px + var(--sb));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:auto}
-#h-vital{display:flex;flex-direction:column;gap:3px;width:210px}
-#h-armor{display:flex;gap:3px;height:6px}#h-armor i{flex:1;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden}#h-armor i b{display:block;height:100%;background:var(--acc2)}
-#h-hp{height:9px;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden}#h-hp b{display:block;height:100%;background:#f2f2f2;transition:width .12s}
-#h-slots{display:flex;gap:5px}.ws{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 9px;min-width:54px;text-align:center;font:700 12px var(--disp);letter-spacing:.04em;line-height:1.15;opacity:.7}.ws.on{border-color:var(--acc);opacity:1}.ws small{display:block;font:600 15px var(--disp);font-variant-numeric:tabular-nums}.ws small em{font-style:normal;color:var(--dim);font-size:12px}
+#h-weap{left:calc(12px + var(--sl));top:calc(56px + var(--st));display:flex;flex-direction:column;gap:6px;width:128px;pointer-events:auto}
+#h-vital{display:flex;flex-direction:column;gap:2px}
+#h-armor{display:flex;gap:2px;height:4px}#h-armor i{flex:1;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden}#h-armor i b{display:block;height:100%;background:var(--acc2)}
+#h-hp{height:7px;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden}#h-hp b{display:block;height:100%;background:#f2f2f2;transition:width .12s}
+.ws{text-align:left;font:700 12px var(--disp);letter-spacing:.05em;line-height:1.1;text-shadow:0 1px 4px #000;width:fit-content;max-width:100%;white-space:nowrap}.ws small{display:block;font:700 20px var(--disp);font-variant-numeric:tabular-nums}.ws small em{font-style:normal;color:rgba(255,255,255,.7);font-size:13px}
 #h-pick{right:calc(12px + var(--sr));top:46%;display:flex;flex-direction:column;align-items:flex-end;gap:3px;font:600 13px var(--disp);letter-spacing:.04em}#h-pick div{background:rgba(10,13,16,.6);padding:2px 8px;border-radius:3px;animation:fade 2.2s forwards}
 #h-kill{left:50%;top:62%;transform:translateX(-50%);font:800 20px var(--disp);letter-spacing:.08em;color:var(--bad);text-shadow:0 2px 8px #000;opacity:0;white-space:nowrap}
 #h-info{left:50%;top:32%;transform:translateX(-50%);text-align:center;font:700 18px var(--disp);letter-spacing:.06em;text-shadow:0 2px 8px #000;width:90vw}
 #h-info small{display:block;font:500 13px var(--body);color:var(--dim);letter-spacing:0}
 #diag{left:calc(10px + var(--sl));bottom:calc(46% + var(--sb));font:500 10.5px/1.35 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.6);padding:5px 7px;border-radius:4px;white-space:pre;color:#bfe8c8}
 @keyframes fade{0%{opacity:0;transform:translateX(10px)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
-@media (max-aspect-ratio:1/1){#h-weap{bottom:auto;top:calc(222px + var(--st));flex-direction:column-reverse}#h-vital{width:190px}#h-prompt{bottom:calc(396px + var(--sb))}#h-banner{top:36%}#h-info{top:44%}#toasts{padding-top:calc(322px + var(--st))!important}#diag{bottom:auto;top:calc(150px + var(--st))}#h-compass{top:calc(46px + var(--st));left:auto;right:calc(148px + var(--sr));transform:none}#h-feed{top:calc(84px + var(--st));max-width:50vw}}
-@media (min-aspect-ratio:1/1) and (max-height:520px){#h-weap{bottom:calc(6px + var(--sb))}#h-vital{width:170px}}
+@media (max-aspect-ratio:1/1){#h-prompt{bottom:calc(396px + var(--sb))}#h-banner{top:30%}#h-info{top:38%}#diag{bottom:auto;top:calc(200px + var(--st))}}
 /* ── botões de toque ── */
-.hb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(18,22,27,.55);border:1.5px solid rgba(255,255,255,.42);display:grid;place-items:center;font:700 11px var(--disp);letter-spacing:.05em;color:#fff;touch-action:none;box-sizing:border-box}
+.hb{position:absolute;pointer-events:auto;border-radius:50%;background:rgba(18,22,27,.4);border:1px solid rgba(255,255,255,.4);display:grid;place-items:center;font:700 11px var(--disp);letter-spacing:.05em;color:#fff;touch-action:none;box-sizing:border-box}
 .hb.on{background:rgba(242,194,48,.55);border-color:var(--acc)}.hb b{position:absolute;right:-2px;top:-4px;background:var(--acc);color:#111;border-radius:8px;min-width:15px;height:15px;font:700 11px/15px var(--disp);text-align:center;padding:0 2px}.hb b:empty{display:none}
 .hb.joy{border-style:dashed;background:rgba(18,22,27,.3)}.hb.joy i{width:42%;height:42%;border-radius:50%;background:rgba(255,255,255,.42);display:block}
 .hb[data-k=fire],.hb[data-k=fireL]{background:rgba(232,90,74,.42);border-color:rgba(255,160,150,.8);font-size:20px!important}.hb[data-k=run].on{background:rgba(95,212,122,.55);border-color:var(--good)}.hb[data-k=interact]{border-radius:12px;background:rgba(242,194,48,.75);color:#111;border-color:#fff}
@@ -104,13 +101,13 @@ body.editing .hb{display:grid!important;outline:1px dashed var(--acc);opacity:1!
 <canvas id="gl" tabindex="0"></canvas>
 <div id="hud" hidden>
   <div id="h-dmg"></div><div id="h-gas"></div><div id="h-scope" hidden></div><div id="h-flash"></div>
-  <div id="h-stat"><span id="s-alive">VIVOS 0</span><span id="s-kills">ABATES 0</span><span id="s-cash">$0</span></div>
-  <div id="h-compass">N 0°</div><div id="h-feed"></div>
-  <div id="h-mini"><canvas id="mini" width="256" height="256"></canvas><div id="h-zone"><span>ZONA</span><b id="z-time">--</b></div><div id="h-contract" hidden></div></div>
+  <div id="h-stat"></div>
+  <div id="h-feed"></div>
+  <div id="h-mini"><canvas id="mini" width="256" height="256"></canvas><div id="h-zone" hidden></div><div id="h-contract" hidden></div></div>
   <div id="h-banner"><b></b><span></span></div><div id="h-info" hidden></div><div id="h-prompt" hidden></div>
   <div id="h-cross"><i></i><i></i><i></i><i></i><i></i></div><div id="h-ret" hidden><i></i></div><div id="h-hit"></div><div id="h-dir"></div>
   <div id="h-pick"></div><div id="h-kill"></div>
-  <div id="h-weap"><div id="h-slots"></div><div id="h-vital"><div id="h-armor"><i><b></b></i><i><b></b></i><i><b></b></i></div><div id="h-hp"><b></b></div></div></div>
+  <div id="h-weap"><div id="h-vital"><div id="h-armor"><i><b></b></i><i><b></b></i><i><b></b></i></div><div id="h-hp"><b></b></div></div><div id="h-slots"></div></div>
   <div id="diag" hidden></div>
 </div>
 <div id="touch" hidden></div>

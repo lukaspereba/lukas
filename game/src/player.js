@@ -35,13 +35,14 @@ export class Player extends Actor {
   }
   move(dt) {
     const ph = G.phys, nt = this.noTerrain; const fly = G.dev.fly;
+    if (fly) { hit('prone'); hit('crouch'); hit('jump'); this.crouch = this.prone = this.sliding = false; }
     if (hit('prone') && !this.downed) { if (this.prone) { if (this.canStand(H_CROUCH)) { this.prone = false; this.crouch = true; } } else { this.prone = true; this.crouch = false; this.sliding = false; I.run = false; } }
     if (hit('crouch') && !this.downed) { if (this.prone) { if (this.canStand(H_CROUCH)) { this.prone = false; this.crouch = true; } } else if (this.sprinting && this.onGround && this.speed > 5.6 && !this.sliding) { this.sliding = true; this.slideT = 0.85; this.slideDir = Math.atan2(this.vel.x, this.vel.z); this.crouch = true; snd.step('terra', this.pos, true, true); } else if (this.crouch) { if (this.canStand(H_STAND)) this.crouch = false; } else this.crouch = true; }
     if (hit('jump') && !this.downed) { if (this.prone) { if (this.canStand(H_CROUCH)) { this.prone = false; this.crouch = true; } } else if (this.crouch && !this.sliding) { if (this.canStand(H_STAND)) this.crouch = false; } else if (this.onGround || fly) { if (this.sliding) { this.sliding = false; this.crouch = false; } this.vel.y = 5.6; this.onGround = false; } else this.tryMantle(true); }
     if (this.downed) { this.prone = true; this.crouch = false; }
     let mx = I.mx, my = I.my; let mag = Math.min(1, Math.hypot(mx, my)); if (I.run && !this.prone && !this.downed) { if (mag < 0.15) { mx = 0; my = 1; mag = 1; } } if (mag < 0.08) { mx = my = 0; mag = 0; }
     const wantSprint = (I.run || I.shift) && my > 0.25 && !this.crouch && !this.prone && this.adsT < 0.2 && !this.downed; this.sprinting = wantSprint && !I.fire && this.reloadT <= 0 && this.busyLow < 0.1;
-    const w = this.w; let sp = this.downed ? 0.9 : this.prone ? 1.1 : this.crouch ? 2.4 : this.sprinting ? 7.0 : 4.7; sp *= (w ? w.def.move : 1.03) * lerp(1, 0.62, this.adsT) * (this.stunT > 0 ? 0.45 : 1) * (G.dev.on ? G.dev.speed : 1); if (my < -0.3) sp *= 0.8;
+    const w = this.w; let sp = this.downed ? 0.9 : this.prone ? 1.1 : this.crouch ? 2.4 : this.sprinting ? 7.0 : 4.7; sp *= (w ? w.def.move : 1.03) * lerp(1, 0.62, this.adsT) * (this.stunT > 0 ? 0.45 : 1) * (G.dev.speed || 1); if (my < -0.3) sp *= 0.8;
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw); let wx = (-sy * my + cy * mx) * sp * mag, wz = (-cy * my - sy * mx) * sp * mag;
     if (this.sliding) { this.slideT -= dt; const ss = 4 + 5.5 * Math.max(0, this.slideT / 0.85); wx = Math.sin(this.slideDir) * ss; wz = Math.cos(this.slideDir) * ss; if (this.slideT <= 0) { this.sliding = false; if (!this.canStand(H_STAND)) this.crouch = true; else this.crouch = I.down; } }
     const acc = this.onGround ? (this.sliding ? 30 : 13) : 2.6; const k = 1 - Math.exp(-acc * dt); this.vel.x += (wx - this.vel.x) * k; this.vel.z += (wz - this.vel.z) * k;
@@ -51,7 +52,7 @@ export class Player extends Actor {
     for (let i = 0; i < n; i++) { this.pos.x += (this.vel.x * dt) / n; this.pos.z += (this.vel.z * dt) / n; P2.x = this.pos.x; P2.z = this.pos.z; if (ph.resolve(P2, r, this.pos.y, h)) blocked = true; this.pos.x = P2.x; this.pos.z = P2.z; }
     this.pos.x = clamp(this.pos.x, -316, 316); this.pos.z = clamp(this.pos.z, -316, 316);
     this.speed = Math.hypot(this.pos.x - ox, this.pos.z - oz) / Math.max(dt, 1e-4);
-    if (fly) { this.vel.y = (I.up ? 7 : 0) - (I.down ? 7 : 0); this.pos.y += this.vel.y * dt; this.onGround = false; const g0 = ph.ground(this.pos.x, this.pos.z, this.pos.y, nt); if (this.pos.y < g0) this.pos.y = g0; return; }
+    if (fly) { const vs = 7 * Math.max(1, (G.dev.speed || 1) * 0.8); this.vel.y = (I.up ? vs : 0) - (I.down ? vs : 0); this.pos.y += this.vel.y * dt; this.onGround = false; const g0 = ph.ground(this.pos.x, this.pos.z, this.pos.y, nt); if (this.pos.y < g0) this.pos.y = g0; return; }
     const g = ph.ground(this.pos.x, this.pos.z, this.pos.y, nt);
     if (this.onGround) { if (this.pos.y - g > STEP + 0.1) { this.onGround = false; this.vel.y = 0; this.fallStart = this.pos.y; } else this.pos.y = g; }
     else { this.vel.y -= GRAV * dt; const ny = this.pos.y + this.vel.y * dt; if (this.vel.y > 0) { const c = ph.ceiling(this.pos.x, this.pos.z, this.pos.y + h); if (ny + h > c) { this.vel.y = 0; } else this.pos.y = ny; if (blocked) this.tryMantle(false); } else this.pos.y = ny;
@@ -71,7 +72,7 @@ export class Player extends Actor {
     const g = G.phys.ground(this.pos.x, this.pos.z, this.pos.y + 0.5, false); if (this.pos.y <= g + 0.05) { this.pos.y = g; const hard = this.mode === 'fall'; this.mode = 'ground'; this.onGround = true; this.vel.set(0, 0, 0); loop('wind', false); snd.step(this.surface(), this.pos, true, true); G.shake = 0.35; if (hard) this.damage(60, null, { fall: true }); if (G.match) G.match.onLand(this); if (this.weapons[0] || this.weapons[1]) this.cur = this.weapons[0] ? 0 : 1; this.drawT = 0.35; }
   }
   weaponUpdate(dt) {
-    if (hit('slot1')) this.switchTo(0); if (hit('slot2')) this.switchTo(1); if (hit('slot3')) this.switchTo(2); if (hit('swap')) this.switchTo(this.cur === 0 && this.weapons[1] ? 1 : this.weapons[0] ? 0 : this.weapons[1] ? 1 : 2);
+    if (hit('slot1')) this.switchTo(0); if (hit('slot2')) this.switchTo(1); if (hit('slot3')) this.switchTo(2); if (hit('swap')) { for (let k = 1; k <= 3; k++) { const n = (this.cur + k) % 3; if (n === 2 || this.weapons[n]) { this.switchTo(n); break; } } }
     if (hit('melee') && this.cool <= 0 && this.swingT <= 0 && this.busyLow < 0.1) { meleeAttack(this); this.cool = Math.max(this.cool, 0.5); }
     const w = this.w; const fire = I.fire || (S.autoFire && this.autoTarget()); const pressed = fire && !this.prevFire; this.prevFire = fire; const busy = this.drawT > 0 || this.busyLow > 0.1 || this.mantle;
     if (!w) { this.adsT = Math.max(0, this.adsT - dt * 6); if (fire && this.cool <= 0 && !busy) meleeAttack(this); this.sprintVM = damp(this.sprintVM, this.sprinting ? 1 : 0, 10, dt); setFov(S.fov); G.zoomSens = 1; return; }

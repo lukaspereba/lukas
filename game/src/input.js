@@ -9,18 +9,18 @@ export const hit = (k) => { if (I.hits.has(k)) { I.hits.delete(k); return true; 
 export function endFrame() { I.lx = 0; I.ly = 0; I.hits.clear(); }
 // Botões do HUD: âncora (l/r/c + t/b), deslocamento em px e tamanho. Editável pelo jogador.
 export const DEF_LAYOUT = {
-  joy: { ax: 'l', ay: 'b', x: 26, y: 30, s: 150, label: '' }, run: { ax: 'l', ay: 'b', x: 62, y: 206, s: 60, label: 'CORRER' }, fireL: { ax: 'l', ay: 'b', x: 14, y: 290, s: 58, label: '●' },
-  fire: { ax: 'r', ay: 'b', x: 26, y: 92, s: 84, label: '●' }, ads: { ax: 'r', ay: 'b', x: 124, y: 52, s: 60, label: 'MIRA' }, jump: { ax: 'r', ay: 'b', x: 22, y: 196, s: 58, label: 'PULO' },
-  crouch: { ax: 'r', ay: 'b', x: 96, y: 170, s: 52, label: 'AGACH' }, prone: { ax: 'r', ay: 'b', x: 156, y: 122, s: 48, label: 'DEITA' }, reload: { ax: 'r', ay: 'b', x: 92, y: 236, s: 50, label: 'REC' },
-  lethal: { ax: 'r', ay: 'b', x: 18, y: 268, s: 48, label: '✸' }, tactical: { ax: 'r', ay: 'b', x: 18, y: 324, s: 48, label: '☁' }, plate: { ax: 'r', ay: 'b', x: 76, y: 300, s: 46, label: '▰' },
-  field: { ax: 'r', ay: 'b', x: 132, y: 300, s: 44, label: '⌖' }, streak: { ax: 'r', ay: 'b', x: 184, y: 300, s: 44, label: '✈' }, interact: { ax: 'c', ay: 'b', x: 0, y: 250, s: 62, label: 'USAR' },
-  bag: { ax: 'r', ay: 't', x: 12, y: 168, s: 44, label: '🎒' }, cam: { ax: 'r', ay: 't', x: 64, y: 168, s: 44, label: '👁' }, pause: { ax: 'l', ay: 't', x: 10, y: 8, s: 40, label: '☰' }, melee: { ax: 'r', ay: 'b', x: 184, y: 190, s: 44, label: '🗡' },
+  joy: { ax: 'l', ay: 'b', x: 26, y: 30, s: 150, label: '' }, run: { ax: 'l', ay: 'b', x: 62, y: 206, s: 56, label: 'CORRER' },
+  fire: { ax: 'r', ay: 'b', x: 24, y: 92, s: 82, label: '●' }, ads: { ax: 'r', ay: 'b', x: 120, y: 56, s: 58, label: 'MIRA' }, jump: { ax: 'r', ay: 'b', x: 22, y: 194, s: 56, label: 'PULO' },
+  crouch: { ax: 'r', ay: 'b', x: 96, y: 168, s: 50, label: 'AGACH' }, prone: { ax: 'r', ay: 'b', x: 156, y: 126, s: 44, label: 'DEITA' }, reload: { ax: 'r', ay: 'b', x: 96, y: 232, s: 46, label: 'REC' },
+  lethal: { ax: 'r', ay: 'b', x: 22, y: 264, s: 44, label: '✸' }, tactical: { ax: 'r', ay: 'b', x: 74, y: 292, s: 44, label: '☁' }, plate: { ax: 'r', ay: 'b', x: 156, y: 184, s: 42, label: '▰' },
+  field: { ax: 'r', ay: 'b', x: 128, y: 296, s: 42, label: '⌖' }, streak: { ax: 'r', ay: 'b', x: 180, y: 262, s: 42, label: '✈' }, interact: { ax: 'c', ay: 'b', x: 0, y: 250, s: 60, label: 'USAR' },
+  bag: { ax: 'r', ay: 't', x: 12, y: 132, s: 38, label: '🎒' }, pause: { ax: 'l', ay: 't', x: 10, y: 8, s: 38, label: '☰' },
 };
 // Layout padrão para paisagem (tela baixa): o conjunto da direita se espalha na horizontal e fica abaixo do minimapa.
-const LAND = { joy: [34, 26, 150], run: [200, 36, 58], fireL: [18, 196, 56], fire: [46, 64, 84], ads: [150, 28, 60], jump: [28, 162, 56], crouch: [100, 158, 52], prone: [162, 100, 48], reload: [222, 40, 50], melee: [222, 100, 44], lethal: [166, 164, 46], tactical: [222, 156, 46], plate: [282, 40, 46], field: [282, 96, 44], streak: [280, 150, 44], interact: [0, 96, 60], bag: [148, 10, 42], cam: [148, 60, 42], pause: [10, 8, 40] };
+const LAND = { joy: [34, 26, 150], run: [200, 36, 56], fire: [46, 64, 82], ads: [150, 28, 58], jump: [28, 162, 54], crouch: [100, 158, 50], prone: [162, 100, 44], reload: [222, 40, 46], lethal: [166, 164, 44], tactical: [222, 152, 44], plate: [222, 96, 42], field: [280, 40, 42], streak: [280, 96, 42], interact: [0, 30, 58], bag: [130, 10, 38], pause: [10, 8, 38] };
 export let layout = {}; let layKey = '';
 const orient = () => (innerWidth > innerHeight * 1.15 ? 'l' : 'p');
-export function loadLayout() { layKey = orient(); const saved = store.get('hud_' + layKey, {}); layout = {}; for (const k in DEF_LAYOUT) { const d = { ...DEF_LAYOUT[k] }; if (layKey === 'l' && LAND[k]) { d.x = LAND[k][0]; d.y = LAND[k][1]; d.s = LAND[k][2]; } layout[k] = { ...d, o: 0.62, ...(saved[k] || {}) }; } return layout; }
+export function loadLayout() { layKey = orient(); const saved = store.get('hud_' + layKey, {}); layout = {}; for (const k in DEF_LAYOUT) { const d = { ...DEF_LAYOUT[k] }; if (layKey === 'l' && LAND[k]) { d.x = LAND[k][0]; d.y = LAND[k][1]; d.s = LAND[k][2]; } layout[k] = { ...d, o: 0.55, ...(saved[k] || {}) }; } return layout; }
 export function saveLayout() { const o = {}; for (const k in layout) { const l = layout[k]; o[k] = { x: l.x, y: l.y, s: l.s, o: l.o }; } store.set('hud_' + layKey, o); }
 export function resetLayout() { store.set('hud_' + layKey, {}); loadLayout(); applyLayout(); }
 export function applyLayout() { for (const k in layout) { const e = document.querySelector(`.hb[data-k="${k}"]`); if (!e) continue; const l = layout[k]; e.style.width = e.style.height = l.s + 'px'; e.style.left = e.style.right = e.style.top = e.style.bottom = ''; if (l.ax === 'l') e.style.left = `calc(${l.x}px + env(safe-area-inset-left, 0px))`; else if (l.ax === 'r') e.style.right = `calc(${l.x}px + env(safe-area-inset-right, 0px))`; else e.style.left = `calc(50% + ${l.x - l.s / 2}px)`; if (l.ay === 't') e.style.top = `calc(${l.y}px + env(safe-area-inset-top, 0px))`; else e.style.bottom = `calc(${l.y}px + env(safe-area-inset-bottom, 0px))`; e.style.opacity = l.o; e.style.fontSize = Math.max(9, l.s * 0.2) + 'px'; } }
@@ -31,7 +31,7 @@ export function initInput() {
   for (const k in layout) { const e = document.createElement('div'); e.className = 'hb' + (k === 'joy' ? ' joy' : ''); e.dataset.k = k; e.innerHTML = k === 'joy' ? '<i></i>' : `<span>${layout[k].label}</span><b></b>`; root.appendChild(e); }
   applyLayout();
   const press = (k, on, ev) => { if (G.hudEdit) return; initAudio();
-    if (k === 'fire' || k === 'fireL') { I.fire = on; if (on && ev) { fireId = ev.pointerId; lastX = ev.clientX; lastY = ev.clientY; } else fireId = null; }
+    if (k === 'fire') { I.fire = on; if (on && ev) { fireId = ev.pointerId; lastX = ev.clientX; lastY = ev.clientY; } else fireId = null; }
     else if (k === 'ads') { if (on) I.ads = !I.ads; }
     else if (k === 'run') { if (on) I.run = !I.run; }
     else if (k === 'jump') { I.up = on; if (on) I.hits.add('jump'); }
