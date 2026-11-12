@@ -67,6 +67,8 @@ export class Game {
   private crouchHeldPrev = false;
   /** fator da resolução dinâmica (0.5..1) e cronômetro de avaliação */
   private dynScale = 1;
+  /** direção do corpo do jogador (pode diferir da câmera em 3ª pessoa) */
+  private bodyYaw = 0;
   private perfTimer = 0;
   private hintTimer = 25;
   readonly isTouch: boolean;
@@ -353,14 +355,33 @@ export class Game {
     const fps = this.rig.mode === 'fps';
     const root = this.model.root;
     root.position.lerpVectors(p.prevPosition, p.position, alpha);
-    root.rotation.y = p.yaw + Math.PI;
-    // 1ª pessoa: o corpo completo atrapalharia a visão (braços de "viewmodel" chegam com as armas, fase 3)
+    // Orientação do corpo: em 1ª pessoa (ou mirando/deitado) segue a câmera; em 3ª pessoa o corpo
+    // vira para a direção do movimento e a cabeça acompanha a câmera (sem torcer quadril e pernas).
+    const v = p.motor.velocity;
+    const speed = Math.hypot(v.x, v.z);
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const followCam = fps || p.stance === 'prone' || this.input.isDown('aim') || p.state === 'mantle';
+    if (followCam) this.bodyYaw = p.yaw;
+    else if (speed > 0.4) {
+      const moveYaw = Math.atan2(-v.x, -v.z);
+      // andando de ré em relação à câmera: mantém o corpo de frente e usa a animação de ré
+      const back = Math.abs(wrap(moveYaw - p.yaw)) > 2.0;
+      const target = back ? p.yaw : moveYaw;
+      this.bodyYaw += wrap(target - this.bodyYaw) * Math.min(1, dt * 10);
+    } else if (Math.abs(wrap(p.yaw - this.bodyYaw)) > 1.6) {
+      // parado: só gira o corpo quando a câmera passa muito do limite da cabeça
+      this.bodyYaw += wrap(p.yaw - this.bodyYaw) * Math.min(1, dt * 4);
+    }
+    this.bodyYaw = wrap(this.bodyYaw);
+    root.rotation.y = this.bodyYaw + Math.PI;
+    // 1ª pessoa: o corpo completo atrapalharia a visão (braços de "viewmodel" chegam com as armas)
     if (fps) this.rig.camera.layers.disable(PLAYER_LAYER);
     else this.rig.camera.layers.enable(PLAYER_LAYER);
-    const lv = p.localVelocity();
+    const fx = -Math.sin(this.bodyYaw);
+    const fz = -Math.cos(this.bodyYaw);
     this.model.update(dt, {
-      velX: lv.x,
-      velZ: lv.z,
+      velX: v.x * -fz + v.z * fx,
+      velZ: v.x * fx + v.z * fz,
       crouch: p.crouchBlend,
       prone: p.proneBlend,
       grounded: p.motor.grounded,
@@ -369,6 +390,7 @@ export class Game {
       slide: p.slideBlend,
       mantle: p.mantleProgress,
       aimPitch: p.pitch,
+      aimYaw: wrap(p.yaw - this.bodyYaw),
       hideHead: fps,
       justJumped: p.justJumped,
       justLanded: p.justLanded,

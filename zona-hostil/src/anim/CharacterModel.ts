@@ -47,6 +47,8 @@ export interface CharacterAnimInput {
   slide: number; // 0..1
   mantle: number; // 0..1
   aimPitch: number; // rad (+ = para cima)
+  /** diferença entre a direção da câmera e a do corpo (rad, + = esquerda); a cabeça acompanha */
+  aimYaw?: number;
   hideHead: boolean;
   justJumped: boolean;
   justLanded: boolean;
@@ -94,10 +96,14 @@ export class CharacterModel {
   private phase = 0;
   private phaseOffset = new Map<string, number>();
   private legYaw = 0;
-  private jumpT = -1;
-  private landT = -1;
   private crawlPhase = 0;
   private headHidden = false;
+  /** orientação de bind (relativa à raiz) para estabilizar a cabeça */
+  private bindHeadQ = new Quaternion();
+  private airW = 0;
+  /** pose puramente animada do quadro anterior (o mixer só reescreve ossos cujo valor mudou) */
+  private animPose: Array<{ bone: Bone; q: Quaternion; p: Vector3 }> = [];
+  private landDip = 0;
   readonly hipHeight: number;
 
   constructor(scene: Group, rawClips: AnimationClip[], private meta: AnimMeta) {
@@ -124,6 +130,7 @@ export class CharacterModel {
       }
     });
     scene.updateMatrixWorld(true);
+    this.bindHeadQ.copy(scene.getWorldQuaternion(new Quaternion()).invert().multiply(this.bone('head').getWorldQuaternion(new Quaternion())));
     const pelvis = this.bone('pelvis');
     this.hipHeight = pelvis.getWorldPosition(new Vector3()).y - scene.getWorldPosition(new Vector3()).y;
     const hipScale = this.hipHeight / meta.hipHeight;
@@ -184,7 +191,8 @@ export class CharacterModel {
     const a = this.actions.get(name);
     if (!a) return;
     a.setEffectiveWeight(weight);
-    if (weight > 0) {
+    // o "parado" tem tempo próprio (respiração), não segue a fase da passada
+    if (weight > 0 && name !== 'idle') {
       const dur = a.getClip().duration;
       const off = this.phaseOffset.get(name) ?? 0;
       a.time = (((phase + off) % 1) + 1) % 1 * dur;
@@ -256,47 +264,46 @@ export class CharacterModel {
       invCycle += (w[n] * rate[n]) / M[n].duration;
       totalW += w[n];
     }
-    if (totalW > 0) this.phase = (this.phase + (dt * invCycle) / totalW) % 1;
+    if (totalW > 0) this.phase = (this.phase + (dt * invCycle * (1 - 0.85 * this.airW)) / totalW) % 1;
     const idleA = this.actions.get('idle');
     if (idleA) idleA.time = (idleA.time + dt) % idleA.getClip().duration;
 
     // ---------------- pulo / queda ----------------
-    const jumpA = this.actions.get('jump');
-    const jm = M.jump;
-    if (s.justJumped) this.jumpT = (jm.liftoff ?? 1.1) - 0.1;
-    if (!s.grounded && this.jumpT < 0 && s.airTime > 0.25) this.jumpT = ((jm.liftoff ?? 1.1) + (jm.land ?? 1.4)) * 0.5;
-    if (s.justLanded && this.jumpT >= 0) {
-      this.landT = jm.land ?? 1.4;
-      this.jumpT = -1;
-    }
-    let jumpW = 0;
-    if (jumpA) {
-      if (this.jumpT >= 0) {
-        const mid = ((jm.liftoff ?? 1.1) + (jm.land ?? 1.4)) * 0.5;
-        this.jumpT = Math.min(this.jumpT + dt, mid);
-        jumpA.time = this.jumpT;
-        jumpW = 1;
-      } else if (this.landT >= 0) {
-        this.landT += dt * 1.3;
-        jumpA.time = this.landT;
-        const end = (jm.land ?? 1.4) + 0.35;
-        jumpW = MathUtils.clamp((end - this.landT) / 0.25, 0, 1) * 0.8;
-        if (this.landT >= end) this.landT = -1;
-      }
-      if (s.mantle > 0) {
-        jumpA.time = ((jm.liftoff ?? 1.1) + (jm.land ?? 1.4)) * 0.5;
-        jumpW = Math.max(jumpW, Math.sin(s.mantle * Math.PI) * 0.9);
-      }
-      jumpW *= 1 - s.prone;
-      jumpA.setEffectiveWeight(jumpW);
-    }
+    // Pose aérea procedural (joelhos dobrados, braços estáveis) + compressão no pouso.
+    // O clipe de pulo da captura (salto vertical parado) deixava braços e pernas estranhos.
+    const airborne = (!s.grounded && s.airTime > 0.06) || s.justJumped || s.mantle > 0;
+    this.airW += ((airborne ? 1 : 0) - this.airW) * Math.min(1, dt * (airborne ? 12 : 9));
+    if (s.justLanded) this.landDip = 0.13;
+    this.landDip = Math.max(0, this.landDip - dt * 0.6);
+    const jumpW = 0;
+    this.actions.get('jump')?.setEffectiveWeight(0);
     const locoScale = 1 - jumpW;
     // durante o deslize, congela um quadro de corrida com a perna esquerda à frente
     const phase = s.slide > 0.01 ? 0.0 : this.phase;
+    // deslize: parte da pose parada (pés lado a lado) e a IK estica a perna da frente
+    const sl = MathUtils.clamp(s.slide, 0, 1);
+    for (const n of LOCO) if (n !== 'idle') w[n] *= 1 - sl;
+    w.idle = w.idle * (1 - sl) + sl;
     for (const n of LOCO) this.setLoco(n, w[n] * locoScale, n === 'idle' ? 0 : phase);
     if (idleA) idleA.setEffectiveWeight(w.idle * locoScale);
 
+    // restaura a pose animada pura antes do mixer: sem isso, ossos cujo valor animado não mudou
+    // manteriam as correções procedurais do quadro anterior e elas se acumulariam
+    for (const a of this.animPose) {
+      a.bone.quaternion.copy(a.q);
+      a.bone.position.copy(a.p);
+    }
     this.mixer.update(0);
+    if (this.animPose.length === 0) {
+      for (const name of ANIMATED) {
+        const b = this.bones.get(name);
+        if (b) this.animPose.push({ bone: b, q: new Quaternion(), p: new Vector3() });
+      }
+    }
+    for (const a of this.animPose) {
+      a.q.copy(a.bone.quaternion);
+      a.p.copy(a.bone.position);
+    }
     this.root.updateMatrixWorld(true);
 
     // ---------------- pós-processamento procedural ----------------
@@ -320,6 +327,26 @@ export class CharacterModel {
       rotateBoneWorldAxis(sp1, UP, legYaw * 0.35);
       rotateBoneWorldAxis(sp2, UP, legYaw * 0.3);
       rotateBoneWorldAxis(sp3, UP, legYaw * 0.35);
+      // cabeça nivelada: cada ator da captura segurava a cabeça de um jeito (até 38° para cima)
+      const hp = this.headPitch();
+      rotateBoneWorldAxis(neck, _r, -hp * 0.35);
+      rotateBoneWorldAxis(head, _r, -hp * 0.65);
+      // cabeça acompanha a direção da câmera quando o corpo está virado para o movimento
+      const yaw = MathUtils.clamp(s.aimYaw ?? 0, -1.1, 1.1);
+      rotateBoneWorldAxis(neck, UP, yaw * 0.4);
+      rotateBoneWorldAxis(head, UP, yaw * 0.6);
+      // braços levemente afastados para não atravessar colete e porta-carregadores
+      const abd = 0.17 + 0.2 * this.airW;
+      rotateBoneWorldAxis(this.bone('upperarm_l'), _f, abd);
+      rotateBoneWorldAxis(this.bone('upperarm_r'), _f, -abd);
+      if (this.airW > 0.01) {
+        // joelhos dobrados no ar (assimétrico, como um salto real)
+        const a = this.airW;
+        rotateBoneWorldAxis(this.bone('thigh_l'), _r, 0.5 * a);
+        rotateBoneWorldAxis(this.bone('thigh_r'), _r, 0.22 * a);
+        rotateBoneWorldAxis(this.bone('calf_l'), _r, -0.95 * a);
+        rotateBoneWorldAxis(this.bone('calf_r'), _r, -0.55 * a);
+      }
       // mira vertical distribuída na coluna
       const pitch = MathUtils.clamp(s.aimPitch, -1.2, 1.2) * (1 - s.prone);
       rotateBoneWorldAxis(sp1, _r, pitch * 0.06);
@@ -330,20 +357,22 @@ export class CharacterModel {
     }
 
     // agachar / deslizar: abaixa a pelve mantendo os pés (IK) e inclina o tronco
-    const crouchDrop = 0.36 * s.crouch * (1 - s.prone) + 0.5 * s.slide;
+    const crouchDrop = 0.36 * s.crouch * (1 - s.prone) + 0.5 * s.slide + this.landDip * (1 - s.prone);
     const footTargets = this.captureFeet();
     let terrainDrop = 0;
-    if (s.groundAt && s.prone < 0.5 && s.grounded) terrainDrop = this.adaptFeetToGround(footTargets, s.groundAt);
+    if (s.groundAt && s.prone < 0.5 && s.grounded && this.airW < 0.3) terrainDrop = this.adaptFeetToGround(footTargets, s.groundAt);
     if (s.slide > 0.01) {
       // perna da frente estendida, trás dobrada
-      footTargets[0].addScaledVector(_f, 0.35 * s.slide);
-      footTargets[1].addScaledVector(_f, -0.15 * s.slide);
+      footTargets[0].addScaledVector(_f, 0.55 * s.slide);
+      footTargets[1].addScaledVector(_f, -0.1 * s.slide);
+      footTargets[1].addScaledVector(_r, 0.08 * s.slide);
     }
     const drop = crouchDrop + terrainDrop;
     if (drop > 1e-3 && s.prone < 0.999) {
       translateBoneWorld(pelvis, _v.set(0, -drop, 0));
-      rotateBoneWorldAxis(sp1, _r, -0.18 * s.crouch + 0.12 * s.slide);
-      rotateBoneWorldAxis(sp2, _r, -0.08 * s.crouch);
+      // agachado inclina para frente; no deslize o tronco vai para trás
+      rotateBoneWorldAxis(sp1, _r, -0.18 * s.crouch * (1 - sl) + 0.32 * sl);
+      rotateBoneWorldAxis(sp2, _r, -0.08 * s.crouch * (1 - sl) + 0.12 * sl);
     }
     if (s.prone < 0.999 && (drop > 1e-3 || terrainDrop !== 0)) {
       const poleL = this.bone('calf_l').getWorldPosition(new Vector3()).addScaledVector(_f, 0.5);
@@ -355,6 +384,15 @@ export class CharacterModel {
     if (s.prone > 0.001) this.applyProne(dt, s, speed);
 
     head.scale.setScalar(this.headHidden || s.hideHead ? 0.001 : 1);
+  }
+
+  /** Inclinação vertical do rosto (rad, + = para cima) relativa à pose de bind, no espaço do modelo. */
+  private headPitch(): number {
+    const rootQ = this.root.getWorldQuaternion(_q).invert();
+    const hq = this.bone('head').getWorldQuaternion(new Quaternion()).premultiply(rootQ);
+    hq.multiply(this.bindHeadQ.clone().invert());
+    const fwd = _v.set(0, 0, 1).applyQuaternion(hq);
+    return Math.asin(MathUtils.clamp(fwd.y, -1, 1));
   }
 
   private captureFeet(): [Vector3, Vector3] {
@@ -387,11 +425,23 @@ export class CharacterModel {
     const c = Math.sin(this.crawlPhase);
     const moveK = MathUtils.smoothstep(speed, 0.05, 0.4);
     const base = this.root.getWorldPosition(new Vector3());
-    // gira o corpo inteiro para a horizontal (barriga para baixo)
-    rotateBoneWorldAxis(pelvis, _r, -(Math.PI / 2 - 0.08) * k);
+    // inclinação do terreno sob o corpo (peito x pés) para não afundar em rampas
+    let slope = 0;
+    let groundPelvis = base.y;
+    if (s.groundAt) {
+      const pc = base.clone().addScaledVector(_f, 0.55);
+      const pf = base.clone().addScaledVector(_f, -1.05);
+      const pp = base.clone().addScaledVector(_f, -0.35);
+      const hc = s.groundAt(pc.x, pc.z, base.y + 0.4) ?? base.y;
+      const hf = s.groundAt(pf.x, pf.z, base.y + 0.4) ?? base.y;
+      groundPelvis = Math.max(base.y, s.groundAt(pp.x, pp.z, base.y + 0.4) ?? base.y);
+      slope = MathUtils.clamp(Math.atan2(hc - hf, 1.6), -0.6, 0.6);
+    }
+    // gira o corpo inteiro para a horizontal (barriga para baixo), seguindo a rampa
+    rotateBoneWorldAxis(pelvis, _r, (-(Math.PI / 2 - 0.08) + slope) * k);
     const pw = pelvis.getWorldPosition(new Vector3());
     const want = base.clone().addScaledVector(_f, -0.35 * k);
-    want.y = base.y + 0.17 * k + (pw.y - base.y) * (1 - k);
+    want.y = groundPelvis + 0.23 * k + (pw.y - groundPelvis) * (1 - k);
     want.x = pw.x + (want.x - pw.x) * k;
     want.z = pw.z + (want.z - pw.z) * k;
     translateBoneWorld(pelvis, want.sub(pw));
@@ -415,7 +465,7 @@ export class CharacterModel {
       const ft = this.bone(`foot_${side}`);
       const bend = moveK * Math.max(0, side === 'l' ? c : -c);
       aimBone(th, cf, _v.copy(_f).multiplyScalar(-1).addScaledVector(sideV, 0.12 + bend * 0.45).add(UP.clone().multiplyScalar(-0.05)), k);
-      aimBone(cf, ft, _v.copy(_f).multiplyScalar(-1).addScaledVector(sideV, 0.05).add(UP.clone().multiplyScalar(0.05 + bend * 0.7)), k);
+      aimBone(cf, ft, _v.copy(_f).multiplyScalar(-1).addScaledVector(sideV, 0.05).add(UP.clone().multiplyScalar(0.05 + bend * 0.45)), k);
     }
     _q.identity();
   }
