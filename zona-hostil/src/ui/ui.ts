@@ -40,17 +40,18 @@ export class LoadingScreen {
 export class TitleScreen {
   readonly el = h('div', 'zh-screen zh-title');
 
-  constructor(parent: HTMLElement, actions: { play: () => void; settings: () => void; credits: () => void }) {
+  constructor(parent: HTMLElement, actions: { play: () => void; train: () => void; settings: () => void; credits: () => void }) {
     this.el.innerHTML = `
       <div class="zh-title-inner">
         <div class="zh-logo big">ZONA <b>HOSTIL</b></div>
-        <div class="zh-sub">BATTLE ROYALE · PROTÓTIPO DA FASE 1</div>
+        <div class="zh-sub">BATTLE ROYALE · CARAPICUÍBA · SP</div>
         <div class="zh-menu">
-          <button data-a="play" class="primary">CAMPO DE TREINAMENTO</button>
+          <button data-a="play" class="primary">JOGAR — CARAPICUÍBA</button>
+          <button data-a="train">CAMPO DE TREINAMENTO</button>
           <button data-a="settings">CONFIGURAÇÕES</button>
           <button data-a="credits">CRÉDITOS E LICENÇAS</button>
         </div>
-        <div class="zh-note">Fase 1: personagem, câmera e movimentação. Battle Royale, armas, bots e multiplayer chegam nas próximas fases.</div>
+        <div class="zh-note">Em desenvolvimento: mapa de Carapicuíba com locais reais. Armas, loot, bots e Battle Royale chegam nas próximas fases.</div>
       </div>`;
     this.el.querySelectorAll('button').forEach((b) =>
       b.addEventListener('click', () => {

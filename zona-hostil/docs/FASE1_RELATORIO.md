@@ -88,7 +88,7 @@ Chromium headless (desktop e celular emulado) deste ambiente.
 - Os prédios do campo de teste são blocos de concreto simples. A arquitetura detalhada é da fase 2, assim como vegetação 3D (árvores, grama) e o mapa de Battle Royale.
 - Personagens sem LOD (≈ 25 mil vértices cada). Bom para poucos personagens; LOD e instâncias entram na fase 2/6.
 - Sem áudio (fase 8). As configurações de áudio existem no código, mas a aba não é mostrada até haver som.
-- Desempenho medido só em software (SwiftShader, 15–35 FPS sem GPU). **Falta validar em celulares reais.** O perfil "médio" é o padrão no celular.
+- Desempenho medido só em software (SwiftShader, sem GPU). **Correção (Fase 3):** o número "15–35 FPS" citado aqui vinha de um contador com média móvel que mostrava valores errados; o contador foi refeito (janela de 1 s) e as medições válidas estão em `docs/RELATORIO_FASES_2_A_5.md`. **Falta validar em celulares reais.** O perfil "médio" é o padrão no celular.
 - Multiplayer: apenas planejado (seção 4 do plano técnico).
 
 ## Como rodar

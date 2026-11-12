@@ -102,7 +102,7 @@ async function main() {
   const browser = await pw.chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     // ------------------------------------------------ desktop
-    const { page, ctx } = await newGame(browser);
+    const { page, ctx } = await newGame(browser, { query: '?mapa=treino' });
     await page.screenshot({ path: OUT + '01-tela-inicial.png' });
     check('tela inicial carregada', (await state(page)).screen === 'title');
     // modo desenvolvedor: 5 toques no logo -> código; errado é recusado, "alex" libera
@@ -299,11 +299,64 @@ async function main() {
     await page.screenshot({ path: OUT + '08-configuracoes.png' });
     await ctx.close();
 
+    // ------------------------------------------------ mapa Carapicuíba
+    {
+      const c = await newGame(browser, { context: { viewport: { width: 640, height: 360 } } });
+      const p = c.page;
+      await p.click('.zh-title [data-a=play]');
+      await simWait(p, 1.2);
+      let cs = await state(p);
+      const pts = await p.evaluate(() => window.__zh.points());
+      const sede = pts.sede;
+      check('Carapicuíba: começa em pé na sede (mapa padrão do JOGAR)', cs.screen === 'playing' && cs.grounded && Math.hypot(cs.pos[0] - sede[0], cs.pos[2] - sede[2]) < 12, `pos ${cs.pos.map((v) => v.toFixed(1)).join(', ')}`);
+      const need = ['quadraJandaia', 'shoppingNorte', 'shoppingAtrio', 'shoppingCobertura', 'escola', 'igreja', 'sede', 'parqueAquatico', 'campo', 'avenida', 'ruaEuropa'];
+      const missing = need.filter((n) => !pts[n]);
+      check('Carapicuíba: todos os locais das fotos existem no mapa', missing.length === 0, missing.join(', '));
+      // cada local: teletransporta, espera 1 s e confere que ficou apoiado (sem cair pelo piso)
+      const bad = [];
+      for (const n of need) {
+        await p.evaluate((name) => window.__zh.teleport(name), n);
+        await simWait(p, 1.0);
+        cs = await state(p);
+        const dy = cs.pos[1] - pts[n][1];
+        if (!cs.grounded || Math.abs(dy) > 1.5) bad.push(`${n} (Δy ${dy.toFixed(1)} m, apoiado=${cs.grounded})`);
+      }
+      check('Carapicuíba: personagem fica apoiado em todos os locais (sem atravessar piso)', bad.length === 0, bad.join('; ') || `${need.length} locais`);
+      // andar pela avenida
+      await p.evaluate(() => { window.__zh.teleport('avenida'); window.__zh.setLook(Math.PI, 0); });
+      await simWait(p, 0.5);
+      const a0 = (await state(p)).pos;
+      await hold(p, 'KeyW', 2.0);
+      const a1 = (await state(p)).pos;
+      const walked = Math.hypot(a1[0] - a0[0], a1[2] - a0[2]);
+      check('Carapicuíba: anda pela Av. Inocêncio Seráfico', walked > 5, `${walked.toFixed(1)} m em 2 s`);
+      // subir a escada rolante do shopping até o 1º piso
+      const at = pts.shoppingAtrio;
+      await p.evaluate((q) => {
+        const g = window.__zh.game;
+        g.player.respawn(new g.player.position.constructor(q[0] - 1.8, q[1] + 0.3, q[2] + 2.8), 0);
+        window.__zh.setLook(0, 0);
+      }, at);
+      await simWait(p, 0.6);
+      const e0 = (await state(p)).pos[1];
+      await hold(p, 'KeyW', 3.5);
+      cs = await state(p);
+      check('Carapicuíba: sobe a escada rolante até o 1º piso do shopping', cs.pos[1] - e0 > 4.5 && cs.grounded, `subiu ${(cs.pos[1] - e0).toFixed(2)} m`);
+      const indoor = await p.evaluate(() => window.__zh.game.indoor);
+      check('Carapicuíba: iluminação interna ativa dentro do shopping', indoor > 0.5, `indoor ${Number(indoor).toFixed(2)}`);
+      await p.screenshot({ path: OUT + '10-carapicuiba-shopping.png' });
+      await p.evaluate(() => window.__zh.teleport('ruaEuropa'));
+      await simWait(p, 1.0);
+      await p.screenshot({ path: OUT + '11-carapicuiba-rua.png' });
+      check('Carapicuíba: quadro renderizado não está preto', await notBlack(p), '');
+      await c.ctx.close();
+    }
+
     // ------------------------------------------------ celular (toque)
     const phone = pw.devices['Pixel 7'];
     const landscape = { ...phone, viewport: { width: phone.viewport.height, height: phone.viewport.width } };
-    const m = await newGame(browser, { context: landscape });
-    await m.page.click('.zh-title [data-a=play]');
+    const m = await newGame(browser, { context: landscape, query: '?mapa=treino' });
+    await m.page.click('.zh-title [data-a=train]');
     await simWait(m.page, 1.0);
     let ms = await state(m.page);
     check('celular: controles de toque visíveis', await m.page.isVisible('.zh-touch .zh-btn[data-id=jump]'), '');

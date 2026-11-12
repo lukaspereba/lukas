@@ -5,7 +5,9 @@ import {
   ACESFilmicToneMapping,
   AnimationClip,
   Clock,
+  Box3,
   Group,
+  Mesh,
   MeshStandardMaterial,
   PCFShadowMap,
   PCFSoftShadowMap,
@@ -25,7 +27,9 @@ import { PlayerController, type MoveInput } from '../player/PlayerController';
 import { TrainingDummy } from '../player/TrainingDummy';
 import { CreditsPanel, Hud, LoadingScreen, PauseMenu, SettingsPanel, TitleScreen } from '../ui/ui';
 import { Environment } from '../world/Environment';
-import { buildTestRange, loadRangeTextures, type RangeLayout } from '../world/TestRange';
+import { buildTestRange, loadRangeTextures } from '../world/TestRange';
+import { buildCarapicuiba } from '../world/city/CityMap';
+import type { Heightfield } from '../world/Heightfield';
 import { mergeStatic } from '../world/Builder';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { DevPanel, attachLogoTaps, type DevState } from '../ui/DevMode';
@@ -39,6 +43,21 @@ const MODEL_EXT: string = import.meta.env.VITE_MODEL_EXT ?? '.glb';
 const DOWN = new Vector3(0, -1, 0);
 const PLAYER_LAYER = 1;
 
+type MapId = 'carapicuiba' | 'treino';
+interface MapLayout {
+  id: MapId;
+  heightfield: Heightfield;
+  group: Group;
+  colliders: Mesh[];
+  spawn: Vector3;
+  spawnYaw: number;
+  points: Record<string, Vector3>;
+  chunk: number;
+  titleFocus: Vector3;
+  dummies: Array<{ at: Vector3; route: Vector3[]; speed?: number }>;
+  interiors: Box3[];
+}
+
 type Screen = 'loading' | 'title' | 'playing' | 'paused';
 
 export class Game {
@@ -49,7 +68,11 @@ export class Game {
   readonly input = new InputState();
   private env!: Environment;
   private world!: CollisionWorld;
-  private layout!: RangeLayout;
+  private layout!: MapLayout;
+  private mapRoot: Group | null = null;
+  private aniso = 4;
+  private terrainTex!: Awaited<ReturnType<typeof loadTerrainTextures>>;
+  private rangeTex!: Awaited<ReturnType<typeof loadRangeTextures>>;
   player!: PlayerController;
   private model!: CharacterModel;
   private dummies: TrainingDummy[] = [];
@@ -78,6 +101,7 @@ export class Game {
   private terrainMat?: MeshStandardMaterial;
   /** direção do corpo do jogador (pode diferir da câmera em 3ª pessoa) */
   private bodyYaw = 0;
+  private indoor = 0;
   private perfTimer = 0;
   private hintTimer = 25;
   readonly isTouch: boolean;
@@ -92,7 +116,7 @@ export class Game {
     this.renderer = new WebGLRenderer({ antialias: s.graphics.antialias, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 0.88;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
     this.renderer.domElement.className = 'zh-canvas';
     container.appendChild(this.renderer.domElement);
@@ -126,26 +150,78 @@ export class Game {
     (window as unknown as { __zh: unknown }).__zh = this.debugApi();
   }
 
+  /** Monta um mapa (Carapicuíba ou Campo de Treinamento), trocando colisão, render e manequins. */
+  async setMap(id: MapId): Promise<void> {
+    let L: MapLayout;
+    if (id === 'treino') {
+      const r = buildTestRange(this.rangeTex, this.terrainTex.rock);
+      const g = (x: number, z: number) => new Vector3(x, r.heightfield.heightAt(x, z) + 0.05, z);
+      L = {
+        id, heightfield: r.heightfield, group: r.builder.group, colliders: r.builder.colliders, spawn: r.spawn, spawnYaw: r.spawnYaw, points: r.points,
+        chunk: Infinity, titleFocus: new Vector3(0, r.spawn.y + 1.2, 26), interiors: [],
+        dummies: [{ at: g(4, 26), route: [] }, { at: g(-8, 12), route: [g(-8, 12), g(8, 12)], speed: 1.5 }, { at: g(-14, 40), route: [g(-14, 40), g(-14, 58), g(14, 58), g(14, 40)], speed: 3.6 }],
+      };
+    } else {
+      const c = await buildCarapicuiba(ASSET, this.aniso, null);
+      const hf = c.heightfield;
+      const g = (x: number, z: number) => new Vector3(x, hf.heightAt(x, z) + 0.3, z);
+      const sp = c.spawn;
+      L = {
+        id, heightfield: hf, group: c.group, colliders: c.colliders, spawn: sp, spawnYaw: c.spawnYaw, points: c.points, chunk: 140, interiors: c.interiors,
+        titleFocus: sp.clone().add(new Vector3(0, 1.2, -3)),
+        dummies: [
+          { at: g(sp.x + 4, sp.z - 4), route: [] },
+          { at: g(-60, -36), route: [g(-60, -36), g(30, -36)], speed: 1.5 },
+          { at: g(-44, -30), route: [g(-44, -30), g(8, -30), g(8, -22), g(-44, -22)], speed: 3.6 },
+        ],
+      };
+      console.info('[mapa] Carapicuíba', c.stats);
+    }
+    if (this.mapRoot) {
+      this.scene.remove(this.mapRoot);
+      this.mapRoot.traverse((o) => (o as Mesh).geometry?.dispose());
+    }
+    const root = new Group();
+    root.name = `Mapa:${id}`;
+    root.add(createTerrainMesh(L.heightfield, this.terrainMat!), mergeStatic(L.group, L.chunk));
+    this.scene.add(root);
+    this.mapRoot = root;
+    this.world = new CollisionWorld(L.heightfield);
+    this.world.setStatic(L.colliders);
+    this.layout = L;
+    if (this.player) {
+      this.player.world = this.world;
+      this.player.motor.world = this.world;
+      this.player.respawn(L.spawn.clone(), L.spawnYaw);
+    } else {
+      this.player = new PlayerController(this.world, L.spawn.clone(), L.spawnYaw);
+    }
+    this.bodyYaw = L.spawnYaw;
+    for (const d of this.dummies) this.scene.remove(d.model.root);
+    this.dummies = [];
+    const { clips, meta } = this.assetsChar;
+    L.dummies.forEach((d, i) => {
+      const m = new CharacterModel(SkeletonUtils.clone(this.skinSources[1 + (i % 3)]) as Group, clips, meta);
+      this.scene.add(m.root);
+      const t = new TrainingDummy(m, this.world, d.at.clone(), d.route, d.speed ?? 1.5, d.route.length ? 1.0 : 0);
+      if (!d.route.length) t.yaw = this.layout.spawnYaw + Math.PI;
+      this.dummies.push(t);
+    });
+  }
+
   private async load(): Promise<void> {
     const r = this.renderer;
     const aniso = Math.min(8, r.capabilities.getMaxAnisotropy());
+    this.aniso = aniso;
     this.loading.progress(0.05, 'Texturas do terreno…');
     const [terrainTex, rangeTex] = await Promise.all([
       loadTerrainTextures(`${ASSET}textures/`, aniso),
       loadRangeTextures(`${ASSET}textures/`, aniso),
     ]);
-    this.loading.progress(0.2, 'Gerando o Campo de Treinamento…');
-    await new Promise((res) => setTimeout(res, 0));
-    this.layout = buildTestRange(rangeTex, terrainTex.rock);
-    const L = this.layout;
-    this.world = new CollisionWorld(L.heightfield);
-    this.world.setStatic(L.builder.colliders);
+    this.terrainTex = terrainTex;
+    this.rangeTex = rangeTex;
     this.terrainMat = createTerrainMaterial(terrainTex);
-    const terrain = createTerrainMesh(L.heightfield, this.terrainMat);
-    // render: geometria estática mesclada por material; colisão: malhas originais (BVH)
-    this.scene.add(terrain, mergeStatic(L.builder.group));
     this.env = new Environment(this.scene, r);
-
     this.loading.progress(0.35, 'Soldados e animações…');
     const loader = new GLTFLoader();
     const [anims, meta] = await Promise.all([
@@ -167,20 +243,9 @@ export class Game {
     this.model.setLayer(PLAYER_LAYER);
     this.env.sun.shadow.camera.layers.enable(PLAYER_LAYER);
     this.scene.add(this.model.root);
-    this.player = new PlayerController(this.world, L.spawn.clone(), L.spawnYaw);
-
-    // manequins de treinamento: parado, patrulha (andando) e corrida em circuito
-    const g = (x: number, z: number) => new Vector3(x, L.heightfield.heightAt(x, z) + 0.05, z);
-    const mk = (i: number) => {
-      const m = new CharacterModel(scenes[i], clips, meta);
-      this.scene.add(m.root);
-      return m;
-    };
-    const idle = new TrainingDummy(mk(1), this.world, g(4, 26));
-    idle.yaw = Math.PI * 0.8;
-    const patrol = new TrainingDummy(mk(2), this.world, g(-8, 12), [g(-8, 12), g(8, 12)], 1.5, 2.0);
-    const jog = new TrainingDummy(mk(3), this.world, g(-14, 40), [g(-14, 40), g(-14, 58), g(14, 58), g(14, 40)], 3.6, 0.2);
-    this.dummies.push(idle, patrol, jog);
+    const initial = new URLSearchParams(location.search).get('mapa') === 'treino' ? 'treino' : 'carapicuiba';
+    this.loading.progress(0.9, initial === 'treino' ? 'Gerando o Campo de Treinamento…' : 'Construindo Carapicuíba…');
+    await this.setMap(initial);
 
     this.loading.progress(0.95, 'Compilando shaders…');
     this.applySettings();
@@ -201,7 +266,8 @@ export class Game {
     this.settingsPanel = new SettingsPanel(c, this.settings);
     this.credits = new CreditsPanel(c);
     this.title = new TitleScreen(c, {
-      play: () => this.play(),
+      play: () => void this.playMap('carapicuiba'),
+      train: () => void this.playMap('treino'),
       settings: () => this.settingsPanel.open(() => undefined),
       credits: () => this.credits.open(),
     });
@@ -286,6 +352,18 @@ export class Game {
   private removeDummy(): void {
     const d = this.dummies.pop();
     if (d) this.scene.remove(d.model.root);
+  }
+
+  /** Inicia o jogo no mapa pedido (monta o mapa se ainda não estiver carregado). */
+  async playMap(id: MapId): Promise<void> {
+    if (this.layout.id !== id) {
+      const ls = new LoadingScreen(this.container);
+      ls.progress(0.5, id === 'treino' ? 'Gerando o Campo de Treinamento…' : 'Construindo Carapicuíba…');
+      await new Promise((r) => setTimeout(r, 30));
+      await this.setMap(id);
+      ls.hide();
+    }
+    this.play();
   }
 
   play(): void {
@@ -391,6 +469,10 @@ export class Game {
     this.updateModels(dt, alpha);
     this.rig.update(dt, alpha, this.player, s.gameplay, this.world);
     this.env.follow(this.rig.feet);
+    // luz ambiente menor dentro de construções cobertas
+    const inside = this.layout.interiors.some((b) => b.containsPoint(this.rig.camera.position));
+    this.indoor += ((inside ? 1 : 0) - this.indoor) * Math.min(1, dt * 3);
+    this.env.setIndoor(this.indoor);
     this.player.justLanded = false;
     this.player.justJumped = false;
     if (this.screen === 'playing') this.updateHud(dt);
@@ -495,7 +577,7 @@ export class Game {
     // câmera cinematográfica orbitando o esquadrão na tela inicial
     const t = now * 0.00006;
     const c = this.rig.camera;
-    const center = new Vector3(0, this.layout.spawn.y + 1.2, 26);
+    const center = this.layout.titleFocus;
     c.position.set(center.x + Math.sin(t) * 7.5, center.y + 0.6, center.z + Math.cos(t) * 7.5);
     c.lookAt(center);
   }

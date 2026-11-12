@@ -1,6 +1,6 @@
 // Utilitários para montar estruturas: caixas com UV em escala de mundo, escadas e paredes com vãos.
 
-import { BoxGeometry, BufferAttribute, BufferGeometry, Group, Material, Mesh, Vector3 } from 'three';
+import { BoxGeometry, BufferAttribute, BufferGeometry, Color, Group, LineSegments, Material, Mesh, Object3D, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /** UV planar por face proporcional ao tamanho real (textura não estica em peças grandes). */
@@ -27,30 +27,55 @@ export function worldUV(geo: BufferGeometry, tile: number): BufferGeometry {
  * Junta todas as malhas estáticas de um grupo em uma malha por material (menos chamadas de desenho:
  * o maior gargalo do WebGL em celulares). As malhas originais continuam valendo para a colisão.
  */
-export function mergeStatic(group: Group): Group {
-  const byMat = new Map<Material, BufferGeometry[]>();
+export function mergeStatic(group: Group, chunk = Infinity): Group {
+  const byMat = new Map<string, { mat: Material; geos: BufferGeometry[] }>();
+  const keep: Object3D[] = [];
   group.updateMatrixWorld(true);
+  const center = new Vector3();
   group.traverse((o) => {
     const m = o as Mesh;
-    if (!m.isMesh) return;
+    if ((o as LineSegments).isLineSegments) {
+      keep.push(o);
+      return;
+    }
+    if (!m.isMesh || !m.visible) return;
+    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+    center.copy(m.geometry.boundingSphere!.center).applyMatrix4(m.matrixWorld);
+    const cx = Number.isFinite(chunk) ? Math.floor(center.x / chunk) : 0;
+    const cz = Number.isFinite(chunk) ? Math.floor(center.z / chunk) : 0;
     let g = m.geometry.clone();
     if (g.index) g = g.toNonIndexed();
     g.clearGroups();
-    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k);
     g.applyMatrix4(m.matrixWorld);
     const mat = m.material as Material;
-    if (!byMat.has(mat)) byMat.set(mat, []);
-    byMat.get(mat)!.push(g);
+    if (!g.attributes.uv) g.setAttribute('uv', new BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    if ((mat as Material & { vertexColors?: boolean }).vertexColors) {
+      // cor por objeto (userData.tint) gravada nos vértices para mesclar vários tons num material só
+      const c = (m.userData.tint as Color | undefined) ?? new Color(1, 1, 1);
+      const n = g.attributes.position.count;
+      const arr = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) arr.set([c.r, c.g, c.b], i * 3);
+      g.setAttribute('color', new BufferAttribute(arr, 3));
+    } else if (g.attributes.color) g.deleteAttribute('color');
+    if (!g.attributes.normal) g.computeVertexNormals();
+    const key = `${mat.uuid}|${cx}|${cz}`;
+    if (!byMat.has(key)) byMat.set(key, { mat, geos: [] });
+    byMat.get(key)!.geos.push(g);
   });
   const out = new Group();
   out.name = 'EstáticoMesclado';
-  for (const [mat, geos] of byMat) {
+  for (const o of keep) {
+    o.removeFromParent();
+    out.add(o);
+  }
+  for (const { mat, geos } of byMat.values()) {
     const merged = mergeGeometries(geos, false);
     geos.forEach((g) => g.dispose());
     if (!merged) continue;
     merged.computeBoundingSphere();
     const mesh = new Mesh(merged, mat);
-    mesh.castShadow = true;
+    mesh.castShadow = !(mat as Material & { transparent: boolean }).transparent && !/Asfalto|Faixa|Calcada|Guia|Placa|Letreiro/.test(mat.name);
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
     out.add(mesh);

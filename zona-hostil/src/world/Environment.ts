@@ -31,7 +31,7 @@ export class Environment {
   private fog: Fog;
 
   constructor(
-    scene: Scene,
+    private scene: Scene,
     private renderer: WebGLRenderer,
     elevationDeg = 38,
     azimuthDeg = 140,
@@ -54,7 +54,7 @@ export class Environment {
     this.sun.position.copy(this.sunDir).multiplyScalar(120);
     scene.add(this.sun, this.sun.target);
 
-    this.hemi = new HemisphereLight(0xb9d3ff, 0x4d4535, 0.55);
+    this.hemi = new HemisphereLight(0xb9d3ff, 0x4d4535, 0.5);
     scene.add(this.hemi);
 
     this.fog = new Fog(new Color(0xb8c6d3), 120, 900);
@@ -69,7 +69,7 @@ export class Environment {
     Object.assign(skyCopy.material.uniforms.turbidity, { value: u.turbidity.value });
     envScene.add(skyCopy);
     scene.environment = pmrem.fromScene(envScene, 0.02).texture;
-    scene.environmentIntensity = 0.45;
+    scene.environmentIntensity = 0.4;
     pmrem.dispose();
     const bgScene = new Scene();
     this.sky.material.uniforms.sunPosition.value.copy(this.sunDir);
@@ -78,6 +78,12 @@ export class Environment {
     const cubeCam = new CubeCamera(1, 5000, cubeRT);
     cubeCam.update(renderer, bgScene);
     scene.background = cubeRT.texture;
+  }
+
+  /** 0 = ao ar livre, 1 = dentro de construção coberta (reduz céu/IBL que o teto bloquearia). */
+  setIndoor(k: number): void {
+    this.scene.environmentIntensity = 0.4 * (1 - 0.65 * k);
+    this.hemi.intensity = 0.5 * (1 - 0.6 * k);
   }
 
   apply(g: GraphicsSettings): void {

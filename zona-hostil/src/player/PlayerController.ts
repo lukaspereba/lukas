@@ -81,7 +81,7 @@ export class PlayerController {
   speedMul = 1;
   fly = false;
 
-  constructor(readonly world: CollisionWorld, spawn: Vector3, yaw = 0) {
+  constructor(public world: CollisionWorld, spawn: Vector3, yaw = 0) {
     this.motor = new CharacterMotor(world, { ...DEFAULT_MOTOR, height: MOVE.standHeight });
     this.motor.teleport(spawn);
     this.prevPosition.copy(spawn);
